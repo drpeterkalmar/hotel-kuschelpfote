@@ -1,0 +1,2 @@
+{"spieler":"Alessia","avatar":"bunny","geld":321,"entdeckt":["bunny","pig"],"ton":true,
+ "hotel":{"world":"blumenwiese","floors":[{"rooms":[{"type":"schlaf","furniture":[{"item":"bedSingle","gx":0,"gz":0,"rot":0},{"item":"flowerPot","gx":3,"gz":0}]},{"type":null,"furniture":[]}]},{"rooms":[{"type":"restaurant","furniture":[{"item":"cakeTable","gx":1,"gz":1,"rot":0}]},{"type":null,"furniture":[]}]}],"ausflug":false,"hearts":12,"stars":1,"served":4}}

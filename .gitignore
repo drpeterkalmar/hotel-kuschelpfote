@@ -1,0 +1,7 @@
+node_modules/
+tests/shots/
+tests/out/
+tests/perf/*.tmp
+__pycache__/
+.DS_Store
+*.log

@@ -1,0 +1,17 @@
+{
+  "name": "hotel-kuschelpfote",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Hotel Kuschelpfote – niedliches Hotel-Aufbauspiel mit Tier-Gästen (three.js, PWA)",
+  "scripts": {
+    "test": "node tests/node/run_all.mjs"
+  },
+  "devDependencies": {
+    "@gltf-transform/core": "4.5.0",
+    "@gltf-transform/extensions": "4.5.0",
+    "@gltf-transform/functions": "4.5.0",
+    "meshoptimizer": "*",
+    "sharp": "*"
+  }
+}
