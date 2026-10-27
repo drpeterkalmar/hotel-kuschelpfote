@@ -1,7 +1,7 @@
 # Hotel Kuschelpfote – Bericht Teil 1 (n1), 27.10.2026
 
 **Live:** https://drpeterkalmar.github.io/hotel-kuschelpfote/ (Version im Menü ☰ unten; geprüft: HTTP 200, Version live = lokal
-`2612a164f1`, 0 Fehler, offline neu laden startet das Spiel, Manifest installierbar). Repo: drpeterkalmar/hotel-kuschelpfote.
+`466c6c7e14`, 0 Fehler, offline neu laden startet das Spiel, Manifest installierbar). Repo: drpeterkalmar/hotel-kuschelpfote.
 
 ## Was geht
 - **Startbildschirm** mit 3 Spielständen (Name selbst eintippen, Tier-Avatar wählen); der Avatar steht im Spiel hinter der
