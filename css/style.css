@@ -32,6 +32,12 @@ button.big .price { font-size: 11px; font-weight: 900; color: #b07a20; }
 #starBar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ffcf4a, #ff9fb7); border-radius: 9px; transition: width 0.4s; }
 #worldName { margin-left: auto; font-size: 15px; }
 
+/* Kamera: drehen + Etagen (hoch: rechts mittig, quer: links) */
+#camBtns { position: absolute; right: calc(8px + var(--safeR)); top: calc(96px + var(--safeT)); display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+#camBtns > *, #lvl > * { pointer-events: auto; }
+#camBtns button.round { font-size: 26px; font-weight: 900; }
+#lvl { display: flex; flex-direction: column; gap: 6px; align-items: center; margin-top: 8px; }
+#lvl .pill { min-height: 36px; padding: 4px 10px; font-size: 14px; }
 /* Leiste unten (hoch) bzw. rechts (quer) */
 #bar { position: absolute; left: 0; right: 0; bottom: calc(10px + var(--safeB)); display: flex; justify-content: center; gap: 10px; pointer-events: none; }
 #bar > * { pointer-events: auto; }
@@ -154,6 +160,8 @@ button.big .price { font-size: 11px; font-weight: 900; color: #b07a20; }
 
 /* Querformat-Handy: Leiste rechts senkrecht, Katalog rechts */
 @media (orientation: landscape) and (max-height: 560px) {
+  #camBtns { right: auto; left: calc(8px + var(--safeL)); top: calc(70px + var(--safeT)); }
+  #lvl { flex-direction: row; margin-top: 0; }
   #bar { flex-direction: column; left: auto; right: calc(8px + var(--safeR)); top: calc(66px + var(--safeT)); bottom: auto; gap: 8px; }
   #bar button.big { height: 60px; min-width: 64px; }
   #catalog { left: auto; top: calc(70px + var(--safeT)); bottom: 0; width: 252px; right: 0; border-radius: 26px 0 0 0; padding: 6px 6px calc(6px + var(--safeB)) 8px; display: flex; flex-direction: row; gap: 6px; }

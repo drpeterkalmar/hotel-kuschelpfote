@@ -12,7 +12,7 @@ export function moonHeight(x, z, craters = CRATERS) {
     const d = Math.hypot(x - cx, z - cz) / r;
     if (d < 1.6) h += d < 1 ? -0.55 * r * 0.25 * (1 - d * d) : 0.35 * r * 0.2 * Math.exp(-((d - 1.05) ** 2) * 18);
   }
-  const r = Math.hypot(x, z); h *= Math.min(1, Math.max(0, (r - 13.5) / 8));   // Bauplatz eben
+  const r = Math.hypot(x, (z + 8) * 0.6); h *= Math.min(1, Math.max(0, (r - 13.5) / 8));   // Bauplatz eben (Hotel reicht nach hinten)
   return h;
 }
 export function makeStarsAndEarth(group, look) {
@@ -63,7 +63,7 @@ export function build(ctx) {
   const ground = moonGround(look); group.add(ground);
   const props = new PropLayer(group); props.addParts('mond', bundles.mond); props.addParts('moebel', bundles.moebel);
   const rnd = seeded(3), list = [];
-  const keep = [[-8, -3.6, 8, 16], [-16, 1.5, -6, 16], [7.5, -2.5, 16, 16]];
+  const keep = [[-8, -20.6, 8, 16], [-16, 1.5, -6, 16], [7.5, -2.5, 16, 16]];
   for (let i = 0; i < 70; i++) {
     const a = rnd() * Math.PI * 2, rr = 8 + Math.pow(rnd(), 0.8) * 40, x = Math.cos(a) * rr, z = Math.sin(a) * rr * 0.85 - 3;
     if (!freeSpot(x, z, keep)) continue;

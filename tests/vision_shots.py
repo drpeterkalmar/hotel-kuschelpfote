@@ -10,8 +10,9 @@ with Server() as srv, sync_playwright() as pw:
         s.ev("__game.autoplay(true)"); s.ev("__game.step(260)"); s.ev("__game.autoplay(false)"); s.ev("__game.closeModal()")
         s.frames(20); time.sleep(2.5); s.ev("__game.closeModal()")
         s.shot(f'hotel_wiese_{dname}', 'gate2')
-        d = 17 if dname == 'quer' else 30
-        s.ev("__game.step(25)"); s.ev(f"__game.setCam({{dist: {d}, y: 1.7, x: 0}})"); time.sleep(1.5); s.shot(f'lobby_{dname}', 'gate2')
+        d = 15 if dname == 'quer' else 21
+        s.ev("__game.step(25)"); s.ev(f"__game.setCam({{dist: {d}, x: 0.5, z: -0.5}})"); time.sleep(1.5); s.shot(f'lobby_{dname}', 'gate2')
+        s.ev(f"__game.setCam({{dist: {d + 4}, x: 0, z: -6, yaw: 0.785}})"); time.sleep(1.5); s.shot(f'zimmer45_{dname}', 'gate2'); s.ev("__game.setCam({yaw: 0})")
         s.ev("__game.openRoom('1A')"); time.sleep(0.8)
         s.ev("(() => { const f = __app.furnish; f.select(f.room.furniture[0]); })()"); time.sleep(1.4); s.shot(f'einrichten_{dname}', 'gate2')
         s.ev("__game.closeRoom()"); time.sleep(0.3)

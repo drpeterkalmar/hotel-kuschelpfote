@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { WISHES, ROOM_TYPES } from '../core/catalog.js';
 import { allRooms, isGuestRoom, floorPrice, canBuildFloor, starsForFloor, wishMet, getRoom } from '../core/hotel.js';
-import { cellCenter, FH, HALF_W } from '../core/layout.js';
+import { cellCenter, FH, HALF_W, corrPoint, wingLevel } from '../core/layout.js';
 import { PET_SCALE } from '../gfx/pets.js';
 
 const v3 = new THREE.Vector3();
@@ -61,8 +61,9 @@ export class Overlay {
       // Zimmer-Marken
       const free = new Set(sim.freeGuestRooms().map((r) => r.id));
       for (const r of allRooms(sim.hotel)) {
+        if (wingLevel(r.floor) > (app.level ?? 99)) continue;
         const c = cellCenter(r.floor, r.side, 2.5, 2);
-        const p = this.proj(c.x, c.y + 1.75, c.z + 1.4);
+        const p = this.proj(c.x, c.y + 1.2, c.z);
         if (!r.room.type) {
           this.place(this.el('r' + r.id, 'badge build', '<b>＋</b> Zimmer', () => app.screens.roomTypePicker(r.id)), p);
         } else if (sel && r.room.type === 'schlaf') {
@@ -74,12 +75,13 @@ export class Overlay {
           this.place(this.el('r' + r.id, 'badge need', '🛏️❓', () => app.furnish.open(r.id)), p);
         }
       }
-      // + Etage über dem Dach
+      // + Anbau: Marke auf dem nächsten Bauplatz (hinter dem letzten Flügel bzw. im 1. Stock)
       const top = app.hotelView.topY;
       const can = canBuildFloor(sim.hotel), price = floorPrice(sim.hotel);
       if (sim.hotel.floors.length < 8) {
-        const html = can ? `🏗️ <span>＋ Etage</span> <span style="color:#b07a20">🪙${price}</span>` : `🔒 ⭐${starsForFloor(sim.hotel.floors.length + 1)}`;
-        const p = this.proj(-HALF_W + 3.2, top + (app.world.look.dachForm === 'kuppel' ? 0.6 : 0.2), 2.6);
+        const html = can ? `🏗️ <span>＋ Anbau</span> <span style="color:#b07a20">🪙${price}</span>` : `🏗️ 🔒 ⭐${starsForFloor(sim.hotel.floors.length + 1)}`;
+        const nw = sim.hotel.floors.length + 1, cp = corrPoint(nw);
+        const p = this.proj(cp.x, cp.y + 0.8, cp.z); if ((app.level ?? 99) < wingLevel(nw)) p.vis = false;
         this.place(this.el('floor', 'badge floor', html, () => app.screens.buildFloor()), p);
       }
       // Ausflugsort

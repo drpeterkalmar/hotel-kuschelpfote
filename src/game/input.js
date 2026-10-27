@@ -1,7 +1,7 @@
 // Eingabe auf der 3D-Fläche: Hotel = Wischen scrollt, Pinch/Mausrad zoomt, Tippen wählt Gast/Zimmer.
 // Einrichten und Mitmach-Spiel bekommen die Zeiger-Ereignisse weitergereicht.
 import * as THREE from 'three';
-import { FH, HALF_W, LIFT, ROOM_D } from '../core/layout.js';
+import { FH, HALF_W, LIFT, ROOM_D, roomZ0, wingLevel } from '../core/layout.js';
 import { roomId } from '../core/hotel.js';
 import { PET_SCALE } from '../gfx/pets.js';
 
@@ -14,15 +14,25 @@ export class Input {
     addEventListener('pointermove', (e) => this.move(e));
     addEventListener('pointerup', (e) => this.up(e));
     addEventListener('pointercancel', (e) => this.up(e, true));
-    c.addEventListener('wheel', (e) => { e.preventDefault(); if (app.mode === 'hotel') app.camCtl.zoomBy(Math.exp(e.deltaY * 0.0012), { x: e.clientX, y: e.clientY }); }, { passive: false });
+    c.addEventListener('wheel', (e) => { e.preventDefault(); if (app.mode === 'hotel') app.camCtl.zoomBy(Math.exp(e.deltaY * 0.0012)); }, { passive: false });
     c.addEventListener('contextmenu', (e) => e.preventDefault());
+    // Desktop: Q/E drehen, R/F kippen, Pfeile verschieben, +/- zoomen
+    addEventListener('keydown', (e) => {
+      if (app.mode !== 'hotel' || e.target.tagName === 'INPUT') return;
+      const k = e.key.toLowerCase(), cc = app.camCtl;
+      if (k === 'q') cc.rotateStep(-1); else if (k === 'e') cc.rotateStep(1);
+      else if (k === 'r') cc.tiltBy(-0.1); else if (k === 'f') cc.tiltBy(0.1);
+      else if (k === 'arrowleft') cc.panBy(60, 0); else if (k === 'arrowright') cc.panBy(-60, 0); else if (k === 'arrowup') cc.panBy(0, 60); else if (k === 'arrowdown') cc.panBy(0, -60);
+      else if (k === '+' || k === '=') cc.zoomBy(0.85); else if (k === '-') cc.zoomBy(1.18);
+    });
   }
   down(e) {
     const app = this.app;
     try { e.target.setPointerCapture(e.pointerId); } catch (err) { /* synthetische Ereignisse */ }
     this.ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t0: performance.now() });
     if (this.ptrs.size === 1) this.moved = 0;
-    if (this.ptrs.size === 2) { const [a, b] = [...this.ptrs.values()]; this.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) }; }
+    if (this.ptrs.size === 2) { const [a, b] = [...this.ptrs.values()]; this.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), ang: Math.atan2(b.y - a.y, b.x - a.x), my: (a.y + b.y) / 2 }; }
+    this.button = e.button;
     if (app.mode === 'furnish') app.furnish.pointerDown(e);
     if (app.mode === 'trip') app.trip.pointerDown(e);
   }
@@ -35,10 +45,17 @@ export class Input {
     this.moved = Math.max(this.moved, Math.hypot(e.clientX - p.x0, e.clientY - p.y0));
     if (app.mode !== 'hotel') return;
     if (this.ptrs.size >= 2 && this.pinch) {
-      const [a, b] = [...this.ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y);
-      app.camCtl.zoomBy(this.pinch.d / Math.max(10, d), { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }); this.pinch.d = d;
-      app.camCtl.panBy(dx / 2, dy / 2);
-    } else if (this.moved > 8) { app.camCtl.panBy(dx, dy); }
+      // zwei Finger: Abstand = Zoom, Winkel = Drehen, gemeinsames Hoch/Runter = Kippen
+      const [a, b] = [...this.ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y), ang = Math.atan2(b.y - a.y, b.x - a.x), my = (a.y + b.y) / 2;
+      app.camCtl.zoomBy(this.pinch.d / Math.max(10, d));
+      let da = ang - this.pinch.ang; while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2;
+      app.camCtl.rotateBy(-da);
+      app.camCtl.tiltBy((my - this.pinch.my) * 0.004);
+      this.pinch.d = d; this.pinch.ang = ang; this.pinch.my = my; this.rotated = true;
+    } else if (this.moved > 8) {
+      if (this.button === 2) { app.camCtl.rotateBy(-dx * 0.008); app.camCtl.tiltBy(dy * 0.003); this.rotated = true; }   // Maus rechts = drehen/kippen
+      else app.camCtl.panBy(dx, dy);
+    }
   }
   up(e, cancel = false) {
     const app = this.app, p = this.ptrs.get(e.pointerId);
@@ -47,16 +64,21 @@ export class Input {
     if (!p) return;
     this.ptrs.delete(e.pointerId);
     if (this.ptrs.size < 2) this.pinch = null;
+    if (this.ptrs.size === 0 && this.rotated) { app.camCtl.snapYaw(); this.rotated = false; }
     if (!cancel && app.mode === 'hotel' && this.moved < 10 && performance.now() - p.t0 < 600 && this.ptrs.size === 0) this.tapAt(e.clientX, e.clientY);
   }
   rayAt(x, y) { ndc.set(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1); ray.setFromCamera(ndc, this.app.cam); return ray.ray; }
-  // Zimmer unter dem Finger: Schnitt mit der Ebene z = 0 (Zimmermitte)
+  // Zimmer unter dem Finger: Schnitt mit dem Boden der angezeigten Ebene (oberste zuerst)
   roomAt(x, y) {
-    const r = this.rayAt(x, y); if (Math.abs(r.direction.z) < 1e-4) return null;
-    const t = (0.6 - r.origin.z) / r.direction.z; const px = r.origin.x + r.direction.x * t, py = r.origin.y + r.direction.y * t;
-    const f = Math.floor(py / FH); const h = this.app.sim.hotel;
-    if (f < 1 || f > h.floors.length || Math.abs(px) > HALF_W || Math.abs(px) < LIFT / 2) return null;
-    return roomId(f, px < 0 ? 0 : 1);
+    const r = this.rayAt(x, y), h = this.app.sim.hotel, n = h.floors.length;
+    for (let L = Math.min(this.app.hotelView.showLevel, wingLevel(Math.max(1, n))); L >= 0; L--) {
+      if (Math.abs(r.direction.y) < 1e-4) return null;
+      const t = (L * FH + 0.3 - r.origin.y) / r.direction.y; if (t < 0) continue;
+      const px = r.origin.x + r.direction.x * t, pz = r.origin.z + r.direction.z * t;
+      if (Math.abs(px) > HALF_W || Math.abs(px) < LIFT / 2) continue;
+      for (let w = 1; w <= n; w++) { if (wingLevel(w) !== L) continue; const z0 = roomZ0(w); if (pz >= z0 && pz <= z0 + ROOM_D) return roomId(w, px < 0 ? 0 : 1); }
+    }
+    return null;
   }
   guestAt(x, y) {
     const app = this.app; let best = null, bd = 46;

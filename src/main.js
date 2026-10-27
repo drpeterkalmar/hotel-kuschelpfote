@@ -16,7 +16,7 @@ import { ITEM, FS, CELL, footprint, itemHeight } from './core/catalog.js';
 import { SIZES } from './core/sizes.js';
 const furnSize = (model) => SIZES['moebel/' + model] || [0.5, 0.5, 0.5];
 import { allRooms, parseRoomId, getRoom } from './core/hotel.js';
-import { FH, cellCenter, LOBBY } from './core/layout.js';
+import { FH, cellCenter, LOBBY, wingLevel, wingY, wingZc, backZ, HALF_W, LOBBY_Z1 } from './core/layout.js';
 import { furnitureCenter } from './core/path.js';
 import { WORLDS, WORLD_LIST, worldUnlocked } from './worlds/index.js';
 import { newSlot, loadSlot, saveSlot, setLastSlot } from './core/save.js';
@@ -110,8 +110,10 @@ export async function enterWorld(id) {
   app.hotelView.rebuild(app.sim.hotel);
   app.env.setAusflug(app.sim.hotel.ausflug);
   app.dirtyFurniture = true; app.shadowDirty = 3;
+  app.level = 99; app.camCtl.setWings(app.sim.hotel.floors.length);
   app.camCtl.focusHotel(); app.camCtl.resetHotel(app.hotelView.topY); app.camCtl.snap();
-  app.env.lights.setFocus(app.hotelView.topY * 0.45);
+  app.env.lights.setFocus(0, (LOBBY_Z1 + backZ(4)) / 2);
+  app.screens.updateLevels();
   app.mode = 'hotel';
   app.screens.showHud(); app.overlay.reset();
   document.getElementById('loading').classList.add('hidden');
@@ -140,7 +142,14 @@ function hookSim(sim) {
   sim.on('star', (s) => { snd.sfx('star'); snd.haptic(); app.screens.starCelebrate(s.stars); app.save(); });
   sim.on('coins', () => app.screens.updateHud());
   sim.on('album', (a) => app.screens.toast('📖', 'Neu im Album: ' + (sim.world.gaeste.find((x) => x.art === a.species)?.name || sim.world.ueberraschung?.name || a.species)));
-  sim.on('floor', (f) => { app.hotelView.rebuild(sim.hotel, f.floor); app.dirtyFurniture = true; app.shadowDirty = 3; app.camCtl.topY = app.hotelView.topY; snd.sfx('build'); app.fx.emit(P.SPARK, { x: 0, y: f.floor * FH + 1.5, z: 2 }, { n: 18, spread: 5, up: 2, size: 0.7 }); app.tutorial.event('floor'); app.save(); app.env.lights.setFocus(app.hotelView.topY * 0.45); });
+  sim.on('floor', (f) => {
+    app.level = 99; app.hotelView.showLevel = 99;
+    app.hotelView.rebuild(sim.hotel, f.floor); app.dirtyFurniture = true; app.shadowDirty = 3; app.camCtl.setWings(sim.hotel.floors.length); snd.sfx('build');
+    // Kamera zum neuen Flügel, Funken über dem Bauplatz
+    app.camCtl.h.tz = wingZc(f.floor); app.camCtl.h.tx = 0; app.camCtl.h.ty = wingY(f.floor); app.camCtl.h.tdist = Math.max(app.camCtl.h.tdist, 26);
+    app.fx.emit(P.SPARK, { x: 0, y: wingY(f.floor) + 1.5, z: wingZc(f.floor) }, { n: 22, spread: 5, up: 2, size: 0.8 });
+    app.tutorial.event('floor'); app.save(); app.screens.updateLevels();
+  });
   sim.on('room', (r) => { app.hotelView.rebuild(sim.hotel); app.dirtyFurniture = true; app.shadowDirty = 3; snd.sfx('build'); const { floor, side } = parseRoomId(r.id); const c = cellCenter(floor, side, 3, 2); app.fx.emit(P.SPARK, { x: c.x - 0.4, y: c.y + 1.2, z: c.z }, { n: 14, spread: 2, size: 0.6 }); app.tutorial.event('room'); app.save(); });
   sim.on('placed', () => { app.dirtyFurniture = true; app.shadowDirty = 2; });
   sim.on('removed', () => { app.dirtyFurniture = true; app.shadowDirty = 2; });
@@ -151,10 +160,10 @@ function hookSim(sim) {
 }
 
 // ---------- Möbel-Liste (Zimmer + Lobby-Deko + Geist beim Einrichten) ----------
-function furnitureList(maxFloor = 99) {
+function furnitureList(maxLevel = 99) {
   const h = app.sim.hotel, list = [];
   for (const r of allRooms(h)) {
-    if (r.floor > maxFloor) continue;
+    if (wingLevel(r.floor) > maxLevel) continue;
     for (const fu of r.room.furniture) {
       if (app.furnish.hiddenUid === fu.uid) continue;
       list.push(furnPlacement(r.floor, r.side, fu));
@@ -188,7 +197,7 @@ function guestStates(dt) {
     let y = g.pos.y, anim = g.anim, animSpeed = 1, sy = 1, sx = 1, tilt = 0;
     const walking = g.path && g.pi < g.path.length && !g.inLift && !['queue', 'use', 'ausflug', 'waitRide', 'idleRoom'].includes(g.state);
     // Mond: Hüpfbögen beim Laufen, Höhe aus der Schwerkraft (h = g·T²/8)
-    const outside = Math.abs(g.pos.x) > 5.8 || g.pos.z > 2.3;
+    const outside = Math.abs(g.pos.x) > HALF_W + 0.2 || g.pos.z > LOBBY_Z1 + 0.3 || g.pos.z < backZ(app.sim.hotel.floors.length) - 0.3;
     if (moon && walking) {
       const T = outside ? HOP_OUT : HOP_IN; const amp = outside ? 1 : (phys.drinnen ?? 0.4);
       v.hopT += dt; const k = (v.hopT % T) / T;
@@ -268,14 +277,18 @@ function frame(rdt) {
   app.sim.playSeconds = (app.slot.playSeconds += rdt);
   app.furnish.update(rdt);
   if (app.dirtyFurniture) {
-    const fl = furnitureList(app.mode === 'furnish' ? app.furnish.floor : 99);
+    const fl = furnitureList(app.mode === 'furnish' ? wingLevel(app.furnish.floor) : app.level ?? 99);
     app.furn.set(fl);
     app.furnBlobs.set(fl.filter((f) => !/^moebel\/rug/.test(f.model)).map((f) => { const sz = app.bundles.moebel[f.model.slice(7)]; const it = f.uid ? null : null; void it;
       const s = furnSize(f.model.slice(7)); const r = Math.abs(Math.round(f.rotY / (Math.PI / 2))) % 2; return { x: f.x, y: f.y, z: f.z, w: (r ? s[2] : s[0]) * FS * 1.25 + 0.25, d: (r ? s[0] : s[2]) * FS * 1.25 + 0.25 }; }));
     app.dirtyFurniture = false;
   }
   const states = guestStates(rdt);
-  if (app.mode === 'furnish') for (const [id, s] of states) { const g = app.sim.guests.find((x) => x.id === id); if (g && g.pos.y > app.furnish.floor * FH + 1.5) s.visible = false; }
+  const showL = app.mode === 'furnish' ? wingLevel(app.furnish.floor) : app.level ?? 99;
+  for (const [id, s] of states) { const g = id === 'host' ? null : app.sim.guests.find((x) => x.id === id); if (g && g.pos.y > showL * FH + 1.5) s.visible = false; }
+  // Wände je Blickrichtung absenken; Mond-Kuppeln beim Heranzoomen ausblenden
+  if (app.hotelView.setView(app.camCtl.viewDir().x, app.camCtl.viewDir().z)) { app.shadowDirty = 2; }
+  app.hotelView.domeOpacity = Math.max(0, Math.min(0.13, (app.camCtl.h.dist - 18) / 80));
   app.pets.update(rdt * (app.timeScale ?? 1), states);
   const pb = []; for (const [id, st] of states) { if (st.visible === false) continue; const g = id === 'host' ? null : app.sim.guests.find((x) => x.id === id);
     const gy = g ? (g.onto ? g.pos.y : Math.floor((g.pos.y + 0.5) / FH) * FH) : 0; const lift = Math.max(0, st.y - gy); const k = 1 / (1 + lift * 0.6);
@@ -305,7 +318,7 @@ window.__game = {
   renderInfo: () => { const i = app.renderer.r.info; return { calls: i.render.calls, tris: i.render.triangles, tex: i.memory.textures, geo: i.memory.geometries }; },
   freeze(on = true) { app.frozen = on; },
   step(sec, dt = 0.05) { for (let t = 0; t < sec; t += dt) { app.sim.step(dt); if (autoplayer) autoplayer.tick(dt); } app.dirtyFurniture = true; },
-  setCam(o) { Object.assign(app.camCtl.h, o); if (o.dist) app.camCtl.h.tdist = o.dist; if (o.x !== undefined) app.camCtl.h.tx = o.x; if (o.y !== undefined) app.camCtl.h.ty = o.y; app.camCtl.snap(); },
+  setCam(o) { const h = app.camCtl.h; if (o.dist) h.tdist = h.dist = o.dist; if (o.x !== undefined) h.tx = h.x = o.x; if (o.z !== undefined) h.tz = h.z = o.z; if (o.yaw !== undefined) h.tyaw = h.yaw = o.yaw; if (o.tilt !== undefined) h.ttilt = h.tilt = o.tilt; app.camCtl.snap(); },
   enterWorld: (id) => enterWorld(id),
   openRoom: (id) => app.furnish.open(id),
   closeRoom: () => app.furnish.close(),
@@ -313,7 +326,8 @@ window.__game = {
   trip: () => app.trip,
   tap: (x, y) => app.input.tapAt(x, y),
   project(p) { const v = new THREE.Vector3(p.x, p.y, p.z).project(app.cam); return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight }; },
-  roomScreen(id) { const { floor, side } = parseRoomId(id); const c = cellCenter(floor, side, 2.5, 2); return this.project({ x: c.x, y: c.y + 1.2, z: c.z }); },
+  roomScreen(id) { const { floor, side } = parseRoomId(id); const c = cellCenter(floor, side, 2.5, 2); return this.project({ x: c.x, y: c.y + 0.3, z: c.z }); },
+  cellScreen(id, gx, gz, dy = 0) { const { floor, side } = parseRoomId(id); const c = cellCenter(floor, side, gx, gz); return this.project({ x: c.x, y: c.y + dy, z: c.z }); },
   timeScale(s) { app.timeScale = s; },
   closeModal() { const m = document.getElementById('modal'); if (!m.classList.contains('hidden')) m.click(); document.querySelectorAll('#modal .close').forEach((b) => b.click()); },
 };

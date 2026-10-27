@@ -10,18 +10,21 @@ const $ = (id) => document.getElementById(id);
 const thumb = (sp) => `assets/thumbs/${sp}.png`;
 export class Screens {
   constructor(app) {
-    this.app = app;
+    this.app = app; const _app = app; void _app;
     $('bMenu').onclick = () => this.menu();
     $('bFloor').onclick = () => this.buildFloor();
     $('bTrip').onclick = () => this.tripButton();
     $('bAlbum').onclick = () => this.album();
     $('bWorlds').onclick = () => this.worlds();
+    $('bRotL').onclick = () => { app.camCtl.rotateStep(-1); this.tap(); };
+    $('bRotR').onclick = () => { app.camCtl.rotateStep(1); this.tap(); };
+    $('bUp').onclick = () => this.setLevel(+1); $('bDown').onclick = () => this.setLevel(-1);
   }
   tap() { this.app.sound.sfx('tap'); }
   // ---------- Start ----------
   showStart() {
     const app = this.app; app.mode = 'menu';
-    const st = $('start'); st.classList.remove('hidden'); $('hud').classList.add('hidden'); $('bar').classList.add('hidden');
+    const st = $('start'); st.classList.remove('hidden'); $('hud').classList.add('hidden'); $('bar').classList.add('hidden'); $('camBtns').classList.add('hidden');
     const slots = [];
     for (let i = 0; i < SLOTS; i++) slots.push(loadSlot(i, WORLD_LIST));
     const chosen = slots.map((s, i) => s?.avatar || AVATARS[i * 2 % AVATARS.length]);
@@ -46,7 +49,18 @@ export class Screens {
     };
     render();
   }
-  showHud() { $('hud').classList.remove('hidden'); $('bar').classList.remove('hidden'); $('start').classList.add('hidden'); this.updateHud(); }
+  // Etagen: darüberliegende ausblenden (nur sichtbar, wenn es einen 1. Stock gibt)
+  levels() { const n = this.app.sim?.hotel.floors.length || 0; return n ? Math.floor((n - 1) / 4) + 1 : 1; }
+  setLevel(d) {
+    const app = this.app, max = this.levels() - 1; const cur = Math.min(app.level ?? 99, max);
+    const nl = Math.max(0, Math.min(max, cur + d)); app.level = nl === max ? 99 : nl;
+    app.hotelView.showUpTo(app.level); app.camCtl.h.ty = Math.min(nl, max) * 3.0; app.dirtyFurniture = true; this.tap(); this.updateLevels();
+  }
+  updateLevels() {
+    const max = this.levels() - 1; $('lvl').classList.toggle('hidden', max < 1);
+    const cur = Math.min(this.app.level ?? 99, max); $('lvlN').textContent = cur === 0 ? 'EG' : cur + '. OG';
+  }
+  showHud() { $('hud').classList.remove('hidden'); $('bar').classList.remove('hidden'); $('camBtns').classList.remove('hidden'); $('start').classList.add('hidden'); this.updateHud(); }
   updateHud() {
     const app = this.app; if (!app.slot) return;
     const c = $('coinN'); const n = CFG.alles ? '∞' : String(app.slot.coins);
@@ -97,10 +111,9 @@ export class Screens {
     const app = this.app; if (app.mode !== 'hotel') return;
     const h = app.sim.hotel;
     if (h.floors.length >= BAL.maxEtagen) { this.toast('🏨', 'Das Hotel ist schon riesig!'); return; }
-    if (!canBuildFloor(h)) { app.sound.sfx('nope'); this.toast('⭐', `Neue Etage ab ${starsForFloor(h.floors.length + 1)} Sternen`); return; }
+    if (!canBuildFloor(h)) { app.sound.sfx('nope'); this.toast('⭐', `Neuer Anbau ab ${starsForFloor(h.floors.length + 1)} Sternen`); return; }
     const r = app.sim.buildFloor();
-    if (!r.ok) { app.sound.sfx('nope'); this.toast('🪙', `Eine Etage kostet ${floorPrice(h)} Münzen`); return; }
-    app.camCtl.h.ty = Math.min(app.camCtl.h.ty + 2, app.hotelView.topY);
+    if (!r.ok) { app.sound.sfx('nope'); this.toast('🪙', `Ein Anbau kostet ${floorPrice(h)} Münzen`); return; }
     this.updateHud();
   }
   tripButton() {
@@ -143,7 +156,7 @@ export class Screens {
     const items = ITEMS.filter((i) => i.stars === stars && (!i.welt || i.welt === app.world.id)).map((i) => i.icon).join(' ');
     const mond = WORLD_LIST.find((w) => w.frei.welt === app.world.id && w.frei.sterne === stars);
     const { card, close } = this.modal(`<h2>⭐ Neuer Stern! ⭐</h2><p style="font-size:34px">${'⭐'.repeat(stars)}</p>${items ? `<p>Neu im Katalog: <span style="font-size:26px">${items}</span></p>` : ''}
-      ${starsForFloor(h.floors.length + 1) === stars ? '<p>🏗️ Du kannst eine neue Etage bauen!</p>' : ''}
+      ${starsForFloor(h.floors.length + 1) === stars ? '<p>🏗️ Du kannst das Hotel weiter anbauen!</p>' : ''}
       ${mond ? `<p style="font-size:20px;font-weight:900">${mond.icon} Das ${mond.name} ist offen!</p><div class="row"><button class="big ok go" style="min-width:150px"><span>🚀</span><small>Hinfliegen</small></button><button class="big close"><span>👍</span><small>Später</small></button></div>` : '<button class="big ok close"><span>👍</span><small>Super!</small></button>'}`);
     if (mond) { card.querySelector('.go').onclick = () => { close(); app.save(); app.enterWorld(mond.id); }; app.sound.haptic(); }
     app.fx.emit(6, { x: 0, y: app.hotelView.topY, z: 2 }, { n: 24, spread: 5, up: 2.5, size: 0.8 });

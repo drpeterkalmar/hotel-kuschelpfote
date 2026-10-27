@@ -43,7 +43,9 @@ with Server() as srv, sync_playwright() as pw:
         check(any(g['room'] == '1A' for g in st['guests']), 'Gast hat Zimmer 1A')
         check(s.ev("document.querySelector('#tut .txt')?.textContent.includes('einzurichten')"), 'Tutorial ist bei Schritt 3')
         # Zimmer antippen → Einrichten
-        p = s.ev("__game.roomScreen('1A')"); s.tap_xy(p['x'], p['y'] + 30); time.sleep(1.5)
+        for cell_ in [(1, 4), (4, 0), (0, 2)]:   # freie Stelle ohne Gast unter dem Finger (Gast antippen = Reaktion)
+            p = s.ev(f"__game.cellScreen('1A', {cell_[0]}, {cell_[1]})"); s.tap_xy(p['x'], p['y']); time.sleep(1.5)
+            if s.ev("__app.mode") == 'furnish': break
         check(s.ev("__app.mode") == 'furnish', 'Einrichten per Tipp aufs Zimmer')
         check(s.small_buttons() == [], 'Einrichten: Tippziele ≥ 48 px ' + str(s.small_buttons()[:3]))
         n0 = s.ev("__game.sim().hotel.floors[0].rooms[0].furniture.length"); c0 = s.ev("__app.slot.coins")
@@ -51,7 +53,7 @@ with Server() as srv, sync_playwright() as pw:
         s.tap('#cTabs button[data-t="deko"]'); time.sleep(0.3)
         box = s.pg.locator('#cList .item[data-id="pottedPlant"]').bounding_box()
         start = (box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
-        cell = s.ev("(() => { const g = window.__game; const c = { x: -5.6 + 0.8 * 3.5, y: 3.2, z: -2 + 0.8 * 1.5 }; return g.project(c); })()")
+        cell = s.ev("__game.cellScreen('1A', 3, 1)")
         target = (cell['x'], cell['y'] + 58)   # Finger unter dem Geist
         mid = (start[0] - 70, start[1] - 10) if dname == 'quer' else (start[0], start[1] - 60)
         pts = lerp(start, mid, 6) + lerp(mid, target, 14)[1:]
@@ -69,7 +71,7 @@ with Server() as srv, sync_playwright() as pw:
         check(s.ev("__app.slot.coins") < c0, 'Möbel kostet Münzen')
         s.shot(f'platziert_{dname}', 'play')
         # Drehen, Farbe (Bett ist färbbar) – erst Bett antippen
-        bed = s.ev("(() => { const f = __game.sim().hotel.floors[0].rooms[0].furniture.find(x => x.item === 'bedSingle'); return __game.project({ x: -5.6 + 0.8 * (f.gx + 1), y: 3.6, z: -2 + 0.8 * (f.gz + 1.5) }); })()")
+        bed = s.ev("(() => { const f = __game.sim().hotel.floors[0].rooms[0].furniture.find(x => x.item === 'bedSingle'); return __game.cellScreen('1A', f.gx + 0.5, f.gz + 1, 0.4); })()")
         s.tap_xy(bed['x'], bed['y']); time.sleep(0.3)
         check(s.ev("__app.furnish.sel !== null"), 'Möbel per Tipp ausgewählt')
         s.tap('#sCol'); time.sleep(0.2); s.tap('#palette button:nth-child(2)'); time.sleep(0.3)
@@ -92,8 +94,22 @@ with Server() as srv, sync_playwright() as pw:
         check(s.small_buttons() == [], 'Hotel: Tippziele ≥ 48 px ' + str(s.small_buttons()[:3]))
         # Etage bauen über den Knopf in der Leiste
         f0 = s.ev("__game.sim().hotel.floors.length"); s.tap('#bFloor'); time.sleep(1.2)
-        check(s.ev("__game.sim().hotel.floors.length") == f0 + 1, 'Etage gebaut')
+        check(s.ev("__game.sim().hotel.floors.length") == f0 + 1, 'Anbau gebaut')
         s.ev("__game.closeModal()")
+        # Ansicht drehen (Knopf + zwei Finger), Wände werden je Richtung abgesenkt
+        y0 = s.ev("__app.camCtl.h.tyaw"); k0 = s.ev("__app.hotelView.viewKey")
+        s.tap('#bRotR'); time.sleep(1.2)
+        check(abs(s.ev("__app.camCtl.h.tyaw") - y0 - 0.785) < 0.01 and s.ev("__app.hotelView.viewKey") != k0, 'Drehen per Knopf (45°, Wände neu)')
+        cdp = s.ctx.new_cdp_session(s.pg); cx, cy = (s.pg.viewport_size['width'] / 2, s.pg.viewport_size['height'] / 2)
+        cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [{'x': cx - 80, 'y': cy, 'id': 1}, {'x': cx + 80, 'y': cy, 'id': 2}]})
+        for i in range(1, 11):
+            a = 0.09 * i; import math
+            time.sleep(0.03); cdp.send('Input.dispatchTouchEvent', {'type': 'touchMove', 'touchPoints': [{'x': cx - 80 * math.cos(a), 'y': cy - 80 * math.sin(a), 'id': 1}, {'x': cx + 80 * math.cos(a), 'y': cy + 80 * math.sin(a), 'id': 2}]})
+        cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []}); time.sleep(1.0)
+        yaw = s.ev("__app.camCtl.h.tyaw")
+        check(abs(yaw / 0.7854 - round(yaw / 0.7854)) < 0.01 and abs(yaw - y0 - 0.785) > 0.1, f'Zwei-Finger-Drehen rastet auf 45° ein ({yaw:.2f})')
+        s.shot(f'gedreht_{dname}', 'play')
+        s.ev("__game.setCam({yaw: 0})"); time.sleep(0.5)
         # leeres Zimmer → Zimmer-Typ wählen
         s.tap('#overlay .badge.build'); time.sleep(0.4)
         check(s.ev("!document.getElementById('modal').classList.contains('hidden')"), 'Zimmer-Typ-Auswahl offen')

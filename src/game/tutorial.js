@@ -6,7 +6,7 @@ const STEPS = [
   { pic: '🛋️✨', txt: 'Tippe auf ein Zimmer, um es einzurichten.', wait: 'furnish', hand: 'room' },
   { pic: '🌸➡️🏠', txt: 'Zieh ein Möbel aus der Leiste ins Zimmer. Grün = passt!', wait: 'placed', hand: 'catalog' },
   { pic: '✔️', txt: 'Fertig? Tippe auf ✔️. Erfüllte Wünsche bringen Herzen ❤️ und Münzen 🪙.', wait: 'hotel' },
-  { pic: '🏗️⭐', txt: 'Mit Münzen baust du neue Etagen. Herzen bringen Sterne ⭐ – und neue Welten!', wait: null },
+  { pic: '🏗️⭐', txt: 'Mit Münzen baust du das Hotel weiter an. Herzen bringen Sterne ⭐ – und neue Welten! Mit ⟲ ⟳ drehst du die Ansicht.', wait: null },
 ];
 export class Tutorial {
   constructor(app) { this.app = app; this.i = -1; this.el = document.getElementById('tut'); this.hand = null; }
@@ -41,7 +41,7 @@ export class Tutorial {
     if (s?.hand === 'bubble') target = document.querySelector('#overlay .bub');
     if (s?.hand === 'go') target = document.querySelector('#overlay .badge.go');
     if (s?.hand === 'catalog' && app.mode === 'furnish') target = document.querySelector('#cList .item.want') || document.querySelector('#cList .item:not(.locked)');
-    if (s?.hand === 'room' && app.mode === 'hotel') { const p = window.__game.roomScreen('1A'); target = { getBoundingClientRect: () => ({ left: p.x - 20, top: p.y + 30, width: 40, height: 40 }) }; }
+    if (s?.hand === 'room' && app.mode === 'hotel') { const p = window.__game.roomScreen('1A'); target = { getBoundingClientRect: () => ({ left: p.x - 20, top: p.y - 10, width: 40, height: 40 }) }; }
     if (target) {
       if (!this.hand) { this.hand = document.createElement('div'); this.hand.id = 'tutHand'; this.hand.textContent = '👆'; document.body.appendChild(this.hand); }
       const r = target.getBoundingClientRect(); this.hand.style.left = r.left + r.width / 2 + 'px'; this.hand.style.top = r.top + r.height * 0.7 + 'px'; this.hand.style.display = '';

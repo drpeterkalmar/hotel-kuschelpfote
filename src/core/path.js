@@ -1,26 +1,28 @@
 // Wegfindung: (1) Wegpunkt-Graph fürs Gebäude (draußen, Lobby, Aufzug, Flure) mit A*,
 // (2) Raster-A* im Zimmer um die Möbel herum. Reine Logik, in Node getestet.
 import { CELL, ITEM, footprint } from './catalog.js';
-import { RW, RD, LOBBY, liftPoint, landingPoint, doorPoint, doorCell, cellCenter } from './layout.js';
+import { RW, RD, LOBBY, liftPoint, corrPoint, doorPoint, doorCell, cellCenter, wingLevel, wingRow } from './layout.js';
 
 // ---------- Gebäude-Graph ----------
 export function buildGraph(floors, ausflugPunkt) {
   const N = {}, E = {};
   const add = (id, p) => { N[id] = p; E[id] = E[id] || []; };
   const link = (a, b) => { E[a].push(b); E[b].push(a); };
-  add('stop', LOBBY.stop); add('outDoor', LOBBY.outDoor); add('door', LOBBY.door); add('mid', LOBBY.mid);
+  add('stop', LOBBY.stop); add('outDoor', LOBBY.outDoor); add('door', LOBBY.door); add('mid', LOBBY.mid); add('hall', LOBBY.hall);
   add('frontL', LOBBY.frontL); add('frontR', LOBBY.frontR);
   link('stop', 'outDoor'); link('outDoor', 'door'); link('door', 'mid'); link('stop', 'frontL'); link('frontL', 'frontR'); link('outDoor', 'frontL');
+  link('mid', 'hall');
   LOBBY.queue.forEach((q, i) => { add('q' + i, q); link('q' + i, 'mid'); if (i) link('q' + i, 'q' + (i - 1)); });
-  for (let f = 0; f <= floors; f++) {
-    add('lift' + f, liftPoint(f));
-    if (f > 0) {
-      link('lift' + f, 'lift' + (f - 1));
-      add('land' + f, landingPoint(f)); link('lift' + f, 'land' + f);
-      for (const s of [0, 1]) { const id = 'door' + f + (s ? 'B' : 'A'); add(id, doorPoint(f, s)); link(id, 'land' + f); }
-    }
+  // Aufzug je Ebene am Gang-Anfang, dann der Gang nach hinten, Türen links/rechts
+  const levels = floors > 0 ? wingLevel(floors) + 1 : 1;
+  for (let L = 0; L < levels; L++) { add('lift' + L, liftPoint(L)); if (L) link('lift' + L, 'lift' + (L - 1)); }
+  link('lift0', 'hall');
+  for (let w = 1; w <= floors; w++) {
+    add('corr' + w, corrPoint(w));
+    const prev = wingRow(w) === 1 ? 'lift' + wingLevel(w) : 'corr' + (w - 1);
+    link('corr' + w, prev);
+    for (const s of [0, 1]) { const id = 'door' + w + (s ? 'B' : 'A'); add(id, doorPoint(w, s)); link(id, 'corr' + w); }
   }
-  link('lift0', 'mid');
   if (ausflugPunkt) { add('ausflug', ausflugPunkt); link('ausflug', 'frontR'); }
   return { N, E };
 }

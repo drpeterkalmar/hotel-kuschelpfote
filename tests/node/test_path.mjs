@@ -5,16 +5,17 @@ import { WORLDS } from '../../src/worlds/index.js';
 import { ok, eq } from './util.mjs';
 
 export function testGraphReachesAllRooms() {
-  const G = buildGraph(6, { x: 10, y: 0, z: 1 });
-  for (let f = 1; f <= 6; f++) for (const s of ['A', 'B']) {
+  const G = buildGraph(8, { x: 10, y: 0, z: 1 });
+  for (let f = 1; f <= 8; f++) for (const s of ['A', 'B']) {
     const p = graphPath(G, 'q2', 'door' + f + s);
     ok(p, 'Weg zu Etage ' + f + s);
-    ok(p.includes('lift0') && p.includes('lift' + f), 'Weg nutzt Aufzug ' + p.join('>'));
-    // Aufzug nur senkrecht, keine Sprünge
-    for (let i = 1; i < p.length; i++) { const a = G.N[p[i - 1]], b = G.N[p[i]]; ok(Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) < 9.5, 'Kante zu lang ' + p[i - 1] + '>' + p[i]); }
+    const L = Math.floor((f - 1) / 4);
+    ok(p.includes('lift0') && p.includes('lift' + L) && p.includes('corr' + f), 'Weg über Gang/Aufzug ' + p.join('>'));
+    // keine Sprünge: Kanten kurz, senkrecht nur im Aufzug
+    for (let i = 1; i < p.length; i++) { const a = G.N[p[i - 1]], b = G.N[p[i]]; ok(Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) < 9.5, 'Kante zu lang ' + p[i - 1] + '>' + p[i]); if (Math.abs(a.y - b.y) > 0.01) ok(p[i - 1].startsWith('lift') && p[i].startsWith('lift'), 'Höhenwechsel nur im Aufzug'); }
   }
   ok(graphPath(G, 'door3A', 'ausflug'), 'Ausflug erreichbar');
-  ok(graphPath(G, 'door6B', 'stop'), 'Abreise erreichbar');
+  ok(graphPath(G, 'door8B', 'stop'), 'Abreise erreichbar');
 }
 export function testGridAroundFurniture() {
   const h = newHotel(WORLDS.blumenwiese);

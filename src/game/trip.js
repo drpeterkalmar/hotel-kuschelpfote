@@ -19,7 +19,7 @@ export class Trip {
     app.overlay.reset();
     this.scene = this.game.scene; this.cam = this.game.cam; this.t = 0; this.count = 0; this.done = false;
     this.game.onCollect = (n = 1) => { this.count += n; $('tripCount').textContent = '⭐ ' + this.count; };
-    $('trip').classList.remove('hidden'); $('hud').classList.add('hidden'); $('bar').classList.add('hidden'); $('tripCount').textContent = '⭐ 0';
+    $('trip').classList.remove('hidden'); $('hud').classList.add('hidden'); $('bar').classList.add('hidden'); $('camBtns').classList.add('hidden'); $('tripCount').textContent = '⭐ 0';
     this.resize(); app.renderer.r.shadowMap.needsUpdate = true;
     app.mode = 'trip';
     this.dur = opts.dauer || DAUER;

@@ -40,7 +40,7 @@ export function build(ctx) {
   // Deko verteilen (instanziert)
   const props = new PropLayer(group); props.addParts('wiese', bundles.wiese); props.addParts('moebel', bundles.moebel);
   const rnd = seeded(42), list = [];
-  const keep = [[-7.4, -3.2, 7.4, 5.6], [-13, 4.2, 13, 8.2], [-80, TRACK_Z - 1.4, -6, TRACK_Z + 1.4], [7.5, -1.5, 13.8, 4.8]];
+  const keep = [[-7.6, -20.6, 7.6, 5.6], [-13, 4.2, 13, 8.2], [-80, TRACK_Z - 1.4, -6, TRACK_Z + 1.4], [7.5, -1.5, 13.8, 4.8]];
   const flowers = ['flowerRed', 'flowerYellow', 'flowerPurple', 'flowerRed2', 'flowerYellow2', 'flowerPurple2'];
   for (let i = 0; i < 420; i++) {
     const a = rnd() * Math.PI * 2, r = 4 + Math.pow(rnd(), 0.7) * 34, x = Math.cos(a) * r, z = Math.sin(a) * r * 0.8 - 2;
@@ -50,13 +50,13 @@ export function build(ctx) {
     list.push({ model: 'wiese/' + kind, x, y: hill(x, z), z, rotY: rnd() * 6, scale: 2.4 + rnd() * 1.4 });
   }
   for (let i = 0; i < 70; i++) { const a = rnd() * Math.PI * 2, r = 6 + rnd() * 30, x = Math.cos(a) * r, z = Math.sin(a) * r * 0.8 - 2; if (!freeSpot(x, z, keep)) continue; list.push({ model: 'wiese/' + (rnd() < 0.5 ? 'grass' : 'grassLarge'), x, y: hill(x, z), z, rotY: rnd() * 6, scale: 2.2 }); }
-  const trees = [[-12, -6], [-16, -2], [13, -6.5], [17, -1], [-9, -9], [9, -10], [-20, -10], [21, -9], [-26, 2], [26, 4], [0, -14], [-5, -13], [5, -15], [16, 10], [-17, 12], [-31, -8], [30, -12]];
+  const trees = [[-12, -6], [-16, -2], [13, -6.5], [17, -1], [-11.5, -11], [11.5, -12], [-20, -10], [21, -9], [-26, 2], [26, 4], [0, -26], [-7, -27], [7, -28], [16, 10], [-17, 12], [-31, -8], [30, -12], [-12.5, -18], [13, -20], [-19, -22], [20, -24]];
   const tkinds = ['treeOak', 'treeDefault', 'treeDetailed', 'treeFat'];
   trees.forEach(([x, z], i) => list.push({ model: 'wiese/' + tkinds[i % 4], x, y: hill(x, z), z, rotY: i * 1.7, scale: 3.0 + (i % 3) * 0.5 }));
   for (const [x, z] of [[-8, -3.5], [8.2, -3.8], [-7.6, 2.8], [7.7, -0.5], [-14, 9], [14.5, 9.5], [-3, 9.4], [3.5, 9.8]]) list.push({ model: 'wiese/bushDetailed', x, y: 0, z, rotY: x, scale: 2.4 });
   for (const [x, z] of [[-9.2, -1.2], [11.8, 7.5], [-21, 6]]) list.push({ model: 'wiese/mushroomGroup', x, y: 0, z, rotY: x, scale: 2.4 });
   // Zaun hinten
-  for (let x = -12; x <= 12; x += 2) list.push({ model: 'wiese/fence', x, y: 0, z: -5.2, rotY: 0, scale: 2 });
+  for (let x = -12; x <= 12; x += 2) list.push({ model: 'wiese/fence', x, y: 0, z: -22.5, rotY: 0, scale: 2 });
   props.set(list);
   const picnic = new PropLayer(group); picnic.addParts('wiese', bundles.wiese);
   // Picknick-Platz (sichtbar, wenn gebaut)

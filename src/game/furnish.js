@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { CFG } from '../config.js';
 import { ITEM, ITEMS, CATS, PALETTE, CELL, FS, footprint, tintable, WISHES, ROOM_TYPES } from '../core/catalog.js';
 import { canPlace, findSpot, getRoom, parseRoomId, itemAvailable } from '../core/hotel.js';
-import { RW, RD, Z0, FH, roomX0, reservedCells, cellCenter, ROOM_W, ROOM_D } from '../core/layout.js';
+import { RW, RD, FH, roomX0, reservedCells, cellCenter, ROOM_W, ROOM_D, roomZ0, wingY, wingZc, wingLevel } from '../core/layout.js';
 import { PropLayer, makePropMaterial } from '../gfx/batch.js';
 import { WALLPAPERS, DEFAULT_WALL } from '../gfx/atlas.js';
 import { P } from '../gfx/fx.js';
@@ -33,11 +33,11 @@ export class Furnish {
     const { floor, side } = parseRoomId(id);
     this.roomId = id; this.floor = floor; this.side = side; this.undo = []; this.sel = null; this.drag = null;
     app.mode = 'furnish'; app.overlay.selected = null;
-    $('furnish').classList.remove('hidden'); $('hud').classList.add('hidden'); $('bar').classList.add('hidden'); $('fSel').classList.add('hidden');
+    $('furnish').classList.remove('hidden'); $('hud').classList.add('hidden'); $('bar').classList.add('hidden'); $('camBtns').classList.add('hidden'); $('fSel').classList.add('hidden');
     const r = this.room;
     $('fTitle').textContent = (ROOM_TYPES[r.type]?.icon || '') + ' ' + (ROOM_TYPES[r.type]?.name || 'Zimmer');
     this.tab = { schlaf: 'schlafen', restaurant: 'essen', spa: 'bad', spiel: 'spiel' }[r.type] || 'schlafen';
-    app.hotelView.showUpTo(floor);
+    app.hotelView.showUpTo(wingLevel(floor));
     app.dirtyFurniture = true; app.shadowDirty = 2;
     this.buildGrid();
     this.renderList(); this.relayout();
@@ -48,8 +48,8 @@ export class Furnish {
     const app = this.app; if (app.mode !== 'furnish') return;
     this.cancelDrag(); this.sel = null;
     app.mode = 'hotel'; $('furnish').classList.add('hidden'); app.screens.showHud();
-    app.hotelView.showUpTo(99); app.camCtl.focusHotel();
-    app.camCtl.h.ty = Math.max(1.5, this.floor * FH + 1.5); app.camCtl.clamp();
+    app.hotelView.showUpTo(app.level ?? 99); app.camCtl.focusHotel();
+    app.camCtl.h.tdist = Math.max(app.camCtl.h.dist * 1.7, 20); app.camCtl.clamp();
     if (this.grid) { this.grid.parent.remove(this.grid); this.grid = null; }
     if (this.foot) this.foot.visible = false;
     this.roomId = null; app.dirtyFurniture = true; app.shadowDirty = 2; app.save();
@@ -60,7 +60,7 @@ export class Furnish {
     const land = W > H && H < 560;
     const top = 70;
     const free = land ? { x: 0, y: top, w: Math.max(200, cat.left), h: H - top } : { x: 0, y: top, w: W, h: Math.max(160, cat.top - top - 70) };
-    const c = new THREE.Vector3(roomX0(this.side) + ROOM_W / 2, this.floor * FH, 0);
+    const c = new THREE.Vector3(roomX0(this.side) + ROOM_W / 2, wingY(this.floor), wingZc(this.floor));
     this.app.camCtl.focusRoom(c, free);
   }
   // Raster als Textur über dem Boden (Türzellen gelb = frei lassen)
@@ -74,7 +74,7 @@ export class Furnish {
     for (let z = 0; z <= RD; z++) { k.beginPath(); k.moveTo(0, z * S); k.lineTo(RW * S, z * S); k.stroke(); }
     const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
     const m = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, ROOM_D), new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, opacity: 0.9 }));
-    m.rotation.x = -Math.PI / 2; m.position.set(roomX0(this.side) + ROOM_W / 2, this.floor * FH + 0.012, 0); m.renderOrder = 3;
+    m.rotation.x = -Math.PI / 2; m.position.set(roomX0(this.side) + ROOM_W / 2, wingY(this.floor) + 0.012, wingZc(this.floor)); m.renderOrder = 3;
     app.worldGroup.add(m); this.grid = m;
     if (!this.foot) {
       this.foot = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0x66dd88, transparent: true, opacity: 0.45, depthWrite: false }));
@@ -155,7 +155,7 @@ export class Furnish {
   }
   floorPoint(x, y) {
     ndc.set(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1); ray.setFromCamera(ndc, this.app.cam);
-    plane.constant = -this.floor * FH;
+    plane.constant = -wingY(this.floor);
     return ray.ray.intersectPlane(plane, hit) ? hit.clone() : null;
   }
   dragTo(x, y) {
@@ -163,9 +163,9 @@ export class Furnish {
     const off = d.type === 'touch' || d.type === 'pen' ? 58 : 0;   // Finger verdeckt sonst das Möbel
     const p = this.floorPoint(x, y - off); if (!p) return;
     const [fw, fd] = footprint(d.id, d.rot);
-    let gx = Math.round((p.x - roomX0(this.side)) / CELL - fw / 2), gz = Math.round((p.z - Z0) / CELL - fd / 2);
+    let gx = Math.round((p.x - roomX0(this.side)) / CELL - fw / 2), gz = Math.round((p.z - roomZ0(this.floor)) / CELL - fd / 2);
     gx = Math.max(0, Math.min(RW - fw, gx)); gz = Math.max(0, Math.min(RD - fd, gz));
-    d.over = p.x > roomX0(this.side) - 1.2 && p.x < roomX0(this.side) + ROOM_W + 1.2 && p.z > Z0 - 1.5 && p.z < Z0 + ROOM_D + 1.5;
+    d.over = p.x > roomX0(this.side) - 1.2 && p.x < roomX0(this.side) + ROOM_W + 1.2 && p.z > roomZ0(this.floor) - 1.5 && p.z < roomZ0(this.floor) + ROOM_D + 1.5;
     // Einrasten: nächste gültige Stelle im Umkreis von einer Zelle
     let ok = canPlace(this.room, this.side, d.id, gx, gz, d.rot, d.uid);
     if (!ok) {
@@ -221,22 +221,22 @@ export class Furnish {
   cycleWall() {
     const r = this.room; this.pushUndo();
     const cur = r.wall ?? ((DEFAULT_WALL[r.type] ?? 7) + (r.type === 'schlaf' ? (this.floor * 2 + this.side) % 6 : 0)) % WALLPAPERS.length; r.wall = (cur + 1) % WALLPAPERS.length;
-    this.app.hotelView.rebuild(this.app.sim.hotel); this.app.hotelView.showUpTo(this.floor); this.app.shadowDirty = 2;
-    this.app.sound.sfx('pop'); this.app.fx.emit(P.SPARK, { x: roomX0(this.side) + ROOM_W / 2, y: this.floor * FH + 1.6, z: Z0 + 0.3 }, { n: 10, spread: 2, size: 0.5 });
+    this.app.hotelView.rebuild(this.app.sim.hotel); this.app.hotelView.showUpTo(wingLevel(this.floor)); this.app.shadowDirty = 2;
+    this.app.sound.sfx('pop'); this.app.fx.emit(P.SPARK, { x: roomX0(this.side) + ROOM_W / 2, y: wingY(this.floor) + 1.6, z: roomZ0(this.floor) + 0.3 }, { n: 10, spread: 2, size: 0.5 });
   }
   pushUndo() { const r = this.room; this.undo.push({ f: JSON.stringify(r.furniture), coins: this.app.slot.coins, wall: r.wall }); if (this.undo.length > 40) this.undo.shift(); }
   doUndo() {
     const u = this.undo.pop(); const app = this.app;
     if (!u) { app.sound.sfx('nope'); return; }
     const r = this.room; r.furniture = JSON.parse(u.f); app.slot.coins = u.coins;
-    if (r.wall !== u.wall) { r.wall = u.wall; app.hotelView.rebuild(app.sim.hotel); app.hotelView.showUpTo(this.floor); }
+    if (r.wall !== u.wall) { r.wall = u.wall; app.hotelView.rebuild(app.sim.hotel); app.hotelView.showUpTo(wingLevel(this.floor)); }
     app.sim.furnitureChanged(this.roomId); this.select(null); app.dirtyFurniture = true; app.shadowDirty = 2;
     app.sound.sfx('undo'); app.screens.updateHud(); this.renderList();
   }
   // ---------- Zeiger auf der 3D-Fläche ----------
   cellAt(x, y) {
     const p = this.floorPoint(x, y); if (!p) return null;
-    const gx = Math.floor((p.x - roomX0(this.side)) / CELL), gz = Math.floor((p.z - Z0) / CELL);
+    const gx = Math.floor((p.x - roomX0(this.side)) / CELL), gz = Math.floor((p.z - roomZ0(this.floor)) / CELL);
     return gx >= 0 && gz >= 0 && gx < RW && gz < RD ? [gx, gz] : null;
   }
   itemAtCell(c) {
@@ -270,7 +270,7 @@ export class Furnish {
     const d = this.drag;
     if (d && d.gx !== undefined) {
       const [fw, fd] = footprint(d.id, d.rot);
-      const x = roomX0(this.side) + (d.gx + fw / 2) * CELL, z = Z0 + (d.gz + fd / 2) * CELL, y = this.floor * FH;
+      const x = roomX0(this.side) + (d.gx + fw / 2) * CELL, z = roomZ0(this.floor) + (d.gz + fd / 2) * CELL, y = wingY(this.floor);
       this.foot.visible = true; this.foot.position.set(x, y + 0.02, z); this.foot.scale.set(fw * CELL - 0.06, fd * CELL - 0.06, 1);
       this.foot.material.color.set(d.ok ? 0x5fdc84 : 0xff6b7d);
       const fu = { item: d.id, gx: d.gx, gz: d.gz, rot: d.rot, color: d.kind === 'move' ? this.room.furniture.find((f) => f.uid === d.uid)?.color : null };
@@ -280,7 +280,7 @@ export class Furnish {
       const fu = this.selFu(); if (!fu) { this.select(null); return; }
       const [fw, fd] = footprint(fu.item, fu.rot);
       this.foot.visible = true; this.foot.material.color.set(0x8fc8ff);
-      this.foot.position.set(roomX0(this.side) + (fu.gx + fw / 2) * CELL, this.floor * FH + 0.02, Z0 + (fu.gz + fd / 2) * CELL);
+      this.foot.position.set(roomX0(this.side) + (fu.gx + fw / 2) * CELL, wingY(this.floor) + 0.02, roomZ0(this.floor) + (fu.gz + fd / 2) * CELL);
       const pulse = 1 + Math.sin(this.app.t * 5) * 0.03; this.foot.scale.set((fw * CELL - 0.06) * pulse, (fd * CELL - 0.06) * pulse, 1);
     } else this.foot.visible = false;
   }

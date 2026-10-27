@@ -18,11 +18,11 @@ export function makeLights(scene, look) {
   sun.position.copy(d).multiplyScalar(60); sun.target.position.set(0, 8, 0);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  const c = sun.shadow.camera; c.left = -22; c.right = 22; c.top = 26; c.bottom = -18; c.near = 10; c.far = 130;
+  const c = sun.shadow.camera; c.left = -26; c.right = 26; c.top = 26; c.bottom = -26; c.near = 10; c.far = 130;
   sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03; sun.shadow.radius = 5; sun.shadow.blurSamples = 12;
   const fill = new THREE.DirectionalLight(look.himmelLicht, 0.35); fill.position.set(-d.x * 30, 20, 40);
   scene.add(hemi, sun, sun.target, fill);
-  return { hemi, sun, fill, setFocus(y) { sun.target.position.set(0, y, 0); sun.position.copy(d).multiplyScalar(60).add(sun.target.position); } };
+  return { hemi, sun, fill, setFocus(y, z = 0) { sun.target.position.set(0, y, z); sun.position.copy(d).multiplyScalar(60).add(sun.target.position); } };
 }
 // Boden-Scheibe mit Vertexfarben (Farbflecken), Höhe per Funktion
 export function makeGround(radius, seg, colorFn, heightFn) {

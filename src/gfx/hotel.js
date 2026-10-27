@@ -1,258 +1,217 @@
-// Das Puppenhaus: je Etage ein verschmolzenes Mesh (Boden, Tapeten, Wände, Aufzug, Fassade) mit gebackener AO,
-// dazu Dach je Welt (Giebel bzw. Glaskuppel), Rezeption und Schilder. Neue Etagen „wachsen" mit Federanimation.
+// Das Hotel in der 3D-Draufsicht: Lobby vorn, Mittelgang mit Zimmern links/rechts, Flügel nach hinten, 1. Stock über
+// den Flügeln 1–4. Keine Decken. Wände, die zwischen Kamera und einem Raum stehen, werden abgesenkt (Sims-Cutaway);
+// nur Außenwände auf der kameraabgewandten Seite bleiben hoch (mit Fenstern). Je Ebene EIN verschmolzenes Mesh.
 import * as THREE from 'three';
 import { GeoBuilder } from './geo.js';
 import { atlasTexture, T, WALLPAPERS, DEFAULT_WALL, FLOOR_TILE } from './atlas.js';
-import { FH, HALF_W, LIFT, ROOM_W, ROOM_D, Z0, roomX0, DOOR_GZ } from '../core/layout.js';
+import { FH, HALF_W, CORR, ROOM_W, ROOM_D, LOBBY_Z0, LOBBY_Z1, roomX0, roomZ0, wingLevel, wingRow, wingZc, ROWS_PER_LEVEL, DOOR_GZ } from '../core/layout.js';
 import { CELL } from '../core/catalog.js';
 
-const WT = 0.2, SLAB = 0.24, DOOR_H = 2.15;
-const ZF = ROOM_D / 2;                     // Vorderkante
-const DOOR_Z0 = Z0 + DOOR_GZ * CELL, DOOR_Z1 = DOOR_Z0 + CELL;
-const smooth = (x) => x * x * (3 - 2 * x);
-// AO-Funktionen: Abdunkeln an Kanten (d in Metern)
-const edgeAO = (d, r = 0.55, s = 0.32) => 1 - s * Math.exp(-Math.max(0, d) / r * 2.2);
+const WH = 2.25, WT = 0.16, LOW = 0.38, DOOR_H = 2.05, SLAB = 0.22;
+const edgeAO = (d, r = 0.55, s = 0.3) => 1 - s * Math.exp(-Math.max(0, d) / r * 2.2);
 
 export class HotelView {
   constructor(scene, world) {
     this.scene = scene; this.world = world; this.look = world.look;
     this.group = new THREE.Group(); scene.add(this.group);
     this.mat = new THREE.MeshLambertMaterial({ vertexColors: true, map: atlasTexture() });
-    this.floorGroups = []; this.roof = null; this.anims = [];
-    this.glassMat = new THREE.MeshLambertMaterial({ color: 0xcfe9ff, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide, emissive: 0x334466 });
+    this.levelGroups = []; this.anims = []; this.view = { x: 0, z: -1 }; this.viewKey = ''; this.showLevel = 99;
+    this.glassMat = new THREE.MeshLambertMaterial({ color: 0xd8ecff, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide, emissive: 0x223355 });
+    this.domeOpacity = 0.16;
   }
   dispose() { this.group.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); this.scene.remove(this.group); }
-  // komplett neu aufbauen (Etagen-/Zimmeränderung). animateFloor = neu gebaute Etage wächst
-  rebuild(hotel, animateFloor = -1) {
-    for (const g of this.floorGroups) { g.traverse((o) => o.geometry && o.geometry.dispose()); this.group.remove(g); }
-    if (this.roof) { this.roof.traverse((o) => o.geometry && o.geometry.dispose()); this.group.remove(this.roof); }
-    this.floorGroups = [];
-    const n = hotel.floors.length;
-    for (let f = 0; f <= n; f++) {
-      const g = new THREE.Group(); g.userData.floor = f;
-      const mesh = new THREE.Mesh(f === 0 ? this.buildLobby() : this.buildFloor(f, hotel.floors[f - 1]), this.mat);
-      mesh.receiveShadow = true; mesh.castShadow = false;
-      g.add(mesh); g.position.y = f * FH;
-      this.group.add(g); this.floorGroups.push(g);
-    }
-    this.roof = this.buildRoof(); this.roof.position.y = (n + 1) * FH; this.group.add(this.roof);
-    this.buildLamps(hotel);
-    this.topY = (n + 1) * FH;
-    if (animateFloor > 0) {
-      const g = this.floorGroups[animateFloor];
-      this.anims.push({ t: 0, dur: 0.9, fn: (k) => { const s = k < 1 ? Math.max(0.02, 1 - Math.cos(k * Math.PI * 1.6) * Math.exp(-k * 4.2)) : 1; g.scale.set(1, s, 1); } });
-      const r = this.roof; const y1 = r.position.y;
-      this.anims.push({ t: 0, dur: 0.9, fn: (k) => { r.position.y = y1 - FH * (1 - Math.min(1, k < 1 ? 1 - Math.cos(k * Math.PI * 1.6) * Math.exp(-k * 4.2) : 1)); } });
-    }
+  // Blickrichtung (Kamera → Ziel, waagerecht). Baut die Wände neu, wenn sich die 45°-Richtung ändert.
+  setView(dx, dz) {
+    const a = Math.atan2(dx, dz), k = Math.round(a / (Math.PI / 4));
+    const key = String(((k % 8) + 8) % 8);
+    this.view = { x: dx, z: dz };
+    if (key !== this.viewKey && this.hotel) { this.viewKey = key; this.rebuild(this.hotel); return true; }
+    this.viewKey = key; return false;
   }
-  // Deckenlampen (leuchten über Bloom) + warmer Lichtschein auf Boden und Rückwand – je 1 Draw-Call für alle Zimmer
-  buildLamps(hotel) {
-    if (!this.lampMesh) {
-      const warm = this.look.sterne ? new THREE.Color(1.9, 1.75, 1.45) : new THREE.Color(2.1, 1.75, 1.2);
-      this.lampMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.26, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshBasicMaterial({ color: warm }), 40);
-      this.lampMesh.rotation.x = 0; this.lampMesh.frustumCulled = false;
-      const cv = document.createElement('canvas'); cv.width = cv.height = 64; const k = cv.getContext('2d');
-      const g = k.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,214,150,0.55)'); g.addColorStop(0.6, 'rgba(255,200,140,0.18)'); g.addColorStop(1, 'rgba(255,200,140,0)');
-      k.fillStyle = g; k.fillRect(0, 0, 64, 64);
-      this.poolMesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: this.look.sterne ? 0.75 : 0.55 }), 80);
-      this.poolMesh.frustumCulled = false; this.poolMesh.renderOrder = 2;
+  rebuild(hotel, newWing = -1) {
+    this.hotel = hotel;
+    for (const g of this.levelGroups) { g.traverse((o) => o.geometry && o.geometry.dispose()); this.group.remove(g); }
+    this.levelGroups = []; this.domes = [];
+    const n = hotel.floors.length, levels = n ? wingLevel(n) + 1 : 1;
+    for (let L = 0; L < levels; L++) {
+      const g = new THREE.Group(); g.userData.level = L;
+      const m = new THREE.Mesh(this.buildLevel(hotel, L), this.mat); m.receiveShadow = true; m.castShadow = true;
+      g.add(m); g.position.y = L * FH;
+      if (this.look.dachForm === 'kuppel') g.add(this.buildDomes(hotel, L));
+      this.group.add(g); this.levelGroups.push(g);
     }
-    this.group.add(this.lampMesh, this.poolMesh);
-    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), qf = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0)), qb = new THREE.Quaternion();
-    const spots = [{ x: -3.2, f: 0 }, { x: 3.2, f: 0 }];
-    hotel.floors.forEach((fl, i) => fl.rooms.forEach((r, sd) => { if (r.type) spots.push({ x: roomX0(sd) + ROOM_W / 2, f: i + 1 }); }));
-    let n = 0, k2 = 0;
-    for (const sp of spots) {
-      const y = sp.f * FH + FH - SLAB;
-      m.compose(new THREE.Vector3(sp.x, y - 0.01, -0.2), q.setFromEuler(new THREE.Euler(Math.PI, 0, 0)), new THREE.Vector3(1, 0.7, 1)); this.lampMesh.setMatrixAt(n++, m);
-      this.poolMesh.setMatrixAt(k2++, m.compose(new THREE.Vector3(sp.x, sp.f * FH + 0.02, -0.3), qf, new THREE.Vector3(3.6, 3.0, 1)));
-      this.poolMesh.setMatrixAt(k2++, m.compose(new THREE.Vector3(sp.x, sp.f * FH + 1.9, Z0 + 0.03), qb, new THREE.Vector3(3.8, 2.6, 1)));
+    this.topY = (levels - 1) * FH + WH;
+    this.levels = levels;
+    if (newWing > 0) {
+      const g = this.levelGroups[wingLevel(newWing)];
+      this.anims.push({ t: 0, dur: 0.7, fn: (k) => { g.position.y = wingLevel(newWing) * FH - (1 - k) * (1 - k) * 0.25; } });
     }
-    this.lampMesh.count = n; this.poolMesh.count = k2; this.lampMesh.instanceMatrix.needsUpdate = true; this.poolMesh.instanceMatrix.needsUpdate = true;
-    this.lampFloors = spots.map((s2) => s2.f);
+    this.showUpTo(this.showLevel);
   }
   update(dt) {
     for (const a of this.anims) { a.t += dt; a.fn(Math.min(1, a.t / a.dur)); }
     this.anims = this.anims.filter((a) => a.t < a.dur);
+    if (this.domes) for (const d of this.domes) d.material.opacity = this.domeOpacity;
   }
-  // Etagen oberhalb ausblenden (Einrichten-Ansicht von schräg oben)
-  showUpTo(f) {
-    this.floorGroups.forEach((g, i) => (g.visible = i <= f)); if (this.roof) this.roof.visible = f >= 99;
-    // Lampen oberer Etagen ausblenden: Instanzen hinter der Grenze abschneiden (Reihenfolge = Etagen aufsteigend)
-    if (this.lampFloors) { const n = this.lampFloors.filter((x) => x <= f).length; this.lampMesh.count = n; this.poolMesh.count = n * 2; }
-  }
+  // Ebenen oberhalb ausblenden (Etagen-Knöpfe, Einrichten)
+  showUpTo(L) { this.showLevel = L; this.levelGroups.forEach((g, i) => (g.visible = i <= L)); }
 
-  // ---------- Bausteine ----------
-  facadeTile() { return this.look.fassade === 'metall' ? T.METAL : T.SIDING; }
-  buildShell(b, y0, h, f) {
-    const L = this.look;
-    // Decke/Boden-Platte (Vorderkante als Zierleiste in Akzentfarbe)
-    b.box(-HALF_W - WT, -SLAB, Z0 - WT, HALF_W + WT, 0, ZF + 0.12, L.sockel, T.PLAIN, 'pxnxny');
-    b.box(-HALF_W - WT - 0.05, -SLAB - 0.02, ZF + 0.02, HALF_W + WT + 0.05, 0.03, ZF + 0.16, L.akzent, T.PLAIN, 'pzpyny');
-    // Außenwände (Fassade außen, Tapete innen kommt je Zimmer)
-    for (const sx of [-1, 1]) {
-      const x0 = sx < 0 ? -HALF_W - WT : HALF_W, x1 = x0 + WT;
-      b.box(x0, 0, Z0 - WT, x1, h, ZF, L.wand, this.facadeTile(), sx < 0 ? 'nxpz' : 'pxpz', true);
-      b.box(x0 - 0.02, 0, ZF - 0.02, x1 + 0.02, h, ZF + 0.1, L.wand, T.PLAIN, 'pz');
+  // ---------- Grundriss → Wände ----------
+  wallFace(space) {
+    if (space === 'out') return { color: this.look.wand, tile: this.look.fassade === 'metall' ? T.METAL : T.SIDING };
+    if (space === 'corr') return { color: this.look.sterne ? '#e9ecf8' : '#fff3e6', tile: T.PLAIN };
+    if (space === 'lobby') return { color: this.look.sterne ? '#e3e8fb' : '#fff0dc', tile: this.look.sterne ? T.STARS : T.STRIPES };
+    const r = space.room, type = r.type;
+    if (!type) return { color: '#efe8df', tile: T.PLAIN };
+    const wp = WALLPAPERS[r.wall ?? ((DEFAULT_WALL[type] ?? 7) + (type === 'schlaf' ? (space.w * 2 + space.side) % 6 : 0)) % WALLPAPERS.length] || WALLPAPERS[7];
+    return { color: wp.color, tile: wp.tile };
+  }
+  // Wand entlang x (konstantes z) oder entlang z (konstantes x). plus/minus = Raum auf der +/− Seite der Normalen.
+  wall(b, axis, c, a0, a1, plus, minus, opts = {}) {
+    // Absenken: steht die Wand quer zur Blickrichtung, verdeckt sie den Raum dahinter → tief, außer dahinter ist draußen
+    const d = axis === 'z' ? this.view.z : this.view.x;          // Normale der Wand zeigt entlang 'axis'
+    let h = WH;
+    if (Math.abs(d) > 0.38) { const far = d < 0 ? minus : plus; if (far !== 'out') h = LOW; }
+    if (opts.forceLow) h = LOW;
+    const fP = this.wallFace(plus), fM = this.wallFace(minus), top = h < WH ? this.look.akzent : '#ffffff';
+    const pieces = [];
+    let s = a0;
+    for (const o of (opts.doors || []).sort((x, y) => x.a - y.a)) { if (o.a > s) pieces.push([s, o.a, 0, h]); if (h > (o.h || DOOR_H)) pieces.push([o.a, o.b, o.h || DOOR_H, h]); s = o.b; }
+    if (a1 > s) pieces.push([s, a1, 0, h]);
+    for (const [p0, p1, y0, y1] of pieces) {
+      const L = p1 - p0, H = y1 - y0;
+      if (axis === 'z') {   // Wand bei z = c, verläuft entlang x
+        const z0 = c - WT / 2, z1 = c + WT / 2;
+        b.quad([p0, y0, z1], [L, 0, 0], [0, H, 0], fP.color, fP.tile, Math.max(1, Math.round(L * 1.5)), 3, (u, v) => this.wallAO(v * H + y0, u * L, L), [L / ROOM_W, H / WH]);
+        b.quad([p1, y0, z0], [-L, 0, 0], [0, H, 0], fM.color, fM.tile, Math.max(1, Math.round(L * 1.5)), 3, (u, v) => this.wallAO(v * H + y0, u * L, L), [L / ROOM_W, H / WH]);
+        b.box(p0, y1 - 0.0, z0, p1, y1 + 0.05, z1, top, T.PLAIN, 'py', false);
+        b.box(p0, y0, z0, p0 + 0.001, y1, z1, '#f4ece4', T.PLAIN, 'nx'); b.box(p1 - 0.001, y0, z0, p1, y1, z1, '#f4ece4', T.PLAIN, 'px');
+        if (y0 > 0) b.box(p0, y0 - 0.001, z0, p1, y0, z1, '#f4ece4', T.PLAIN, 'ny');
+      } else {              // Wand bei x = c, verläuft entlang z
+        const x0 = c - WT / 2, x1 = c + WT / 2;
+        b.quad([x1, y0, p1], [0, 0, -L], [0, H, 0], fP.color, fP.tile, Math.max(1, Math.round(L * 1.5)), 3, (u, v) => this.wallAO(v * H + y0, u * L, L), [L / ROOM_D, H / WH]);
+        b.quad([x0, y0, p0], [0, 0, L], [0, H, 0], fM.color, fM.tile, Math.max(1, Math.round(L * 1.5)), 3, (u, v) => this.wallAO(v * H + y0, u * L, L), [L / ROOM_D, H / WH]);
+        b.box(x0, y1, p0, x1, y1 + 0.05, p1, top, T.PLAIN, 'py', false);
+        b.box(x0, y0, p0, x1, y1, p0 + 0.001, '#f4ece4', T.PLAIN, 'nz'); b.box(x0, y0, p1 - 0.001, x1, y1, p1, '#f4ece4', T.PLAIN, 'pz');
+        if (y0 > 0) b.box(x0, y0 - 0.001, p0, x1, y0, p1, '#f4ece4', T.PLAIN, 'ny');
+      }
     }
-    // Rückwand außen (sieht man nur von oben/Seite)
-    b.box(-HALF_W - WT, 0, Z0 - WT, HALF_W + WT, h, Z0, L.wand, this.facadeTile(), 'pyny', true);
-    // Stützen vorn am Aufzug (Pfeiler zwischen den Zimmern)
-    for (const sx of [-1, 1]) b.box(sx * LIFT / 2 - 0.08, 0, ZF - 0.12, sx * LIFT / 2 + 0.08, h, ZF + 0.06, L.wand, T.PLAIN, 'pzpxnx');
+    // Türrahmen
+    for (const o of opts.doors || []) if (!o.noFrame) {
+      const fy = Math.min(h, (o.h || DOOR_H) + 0.08), A = this.look.akzent;
+      if (axis === 'z') { for (const px of [o.a - 0.07, o.b]) b.box(px, 0, c - WT / 2 - 0.03, px + 0.07, fy, c + WT / 2 + 0.03, A, T.PLAIN, 'pxnxpznzpy'); }
+      else { for (const pz of [o.a - 0.07, o.b]) b.box(c - WT / 2 - 0.03, 0, pz, c + WT / 2 + 0.03, fy, pz + 0.07, A, T.PLAIN, 'pxnxpznzpy'); }
+    }
+    // Fenster auf hohen Außenwänden (Innenseite)
+    if (h === WH && opts.window && (plus === 'out' || minus === 'out')) {
+      const inPlus = minus === 'out';            // Innenraum auf der +Seite
+      const mid = (a0 + a1) / 2, ww = Math.min(1.6, (a1 - a0) * 0.4), wy = 0.85, wh = 0.95;
+      const win = this.look.sterne ? T.NIGHTWIN : T.WINDOW, off = (WT / 2 + 0.012) * (inPlus ? 1 : -1);
+      if (axis === 'z') {
+        if (inPlus) b.quad([mid - ww / 2, wy, c + off], [ww, 0, 0], [0, wh, 0], '#ffffff', win, 1, 1); else b.quad([mid + ww / 2, wy, c + off], [-ww, 0, 0], [0, wh, 0], '#ffffff', win, 1, 1);
+        b.box(mid - ww / 2 - 0.08, wy - 0.08, c + off - 0.04, mid + ww / 2 + 0.08, wy, c + off + 0.04, '#ffffff', T.PLAIN, 'pypznz');
+      } else {
+        if (inPlus) b.quad([c + off, wy, mid + ww / 2], [0, 0, -ww], [0, wh, 0], '#ffffff', win, 1, 1); else b.quad([c + off, wy, mid - ww / 2], [0, 0, ww], [0, wh, 0], '#ffffff', win, 1, 1);
+        b.box(c + off - 0.04, wy - 0.08, mid - ww / 2 - 0.08, c + off + 0.04, wy, mid + ww / 2 + 0.08, '#ffffff', T.PLAIN, 'pypxnx');
+      }
+    }
   }
-  roomInterior(b, side, room, f) {
-    const x0 = roomX0(side), x1 = x0 + ROOM_W, h = FH - SLAB;
-    const type = room.type;
-    const wp = WALLPAPERS[room.wall ?? ((DEFAULT_WALL[type] ?? 7) + (type === 'schlaf' ? (f * 2 + side) % 6 : 0)) % WALLPAPERS.length] || WALLPAPERS[7];
-    const wallCol = type ? wp.color : '#efe8df';
-    const [ft, fc] = type ? FLOOR_TILE[type] : [T.PLAIN, '#e7ddd2'];
-    // Boden mit AO an Rück- und Seitenwänden
-    b.quad([x0, 0.002, ZF], [ROOM_W, 0, 0], [0, 0, -ROOM_D], fc, ft, 10, 8, (u, v) => edgeAO(v * ROOM_D) * edgeAO(u * ROOM_W) * edgeAO((1 - u) * ROOM_W) * (0.92 + 0.08 * u), [1, 1]);
-    // Rückwand (Tapete), AO an Boden/Decke/Ecken
-    b.quad([x0, 0, Z0 + 0.001], [ROOM_W, 0, 0], [0, h, 0], wallCol, type ? wp.tile : T.PLAIN, 10, 6, (u, v) => edgeAO(v * h, 0.5, 0.36) * edgeAO((1 - v) * h, 0.4, 0.22) * edgeAO(u * ROOM_W) * edgeAO((1 - u) * ROOM_W));
-    // Seitenwände innen: außen voll, zum Aufzug mit Tür
-    const outerX = side === 0 ? x0 : x1, innerX = side === 0 ? x1 : x0, dirO = side === 0 ? 1 : -1;
-    const sideAO = (u, v) => edgeAO(v * h, 0.5, 0.36) * edgeAO((1 - v) * h, 0.4, 0.22) * edgeAO(u * ROOM_D, 0.6, 0.3);
-    // Außenwand innen (Normale zeigt ins Zimmer)
-    if (side === 0) b.quad([outerX + 0.001, 0, Z0], [0, 0, ROOM_D], [0, h, 0], wallCol, type ? wp.tile : T.PLAIN, 8, 6, sideAO);
-    else b.quad([outerX - 0.001, 0, ZF], [0, 0, -ROOM_D], [0, h, 0], wallCol, type ? wp.tile : T.PLAIN, 8, 6, (u, v) => sideAO(1 - u, v));
-    // Innenwand mit Türöffnung (3 Teile: hinten, vorn, Sturz) als dünne Quader
-    const wx0 = side === 0 ? innerX - 0.1 : innerX, wx1 = wx0 + 0.1;
-    b.box(wx0, 0, Z0, wx1, h, DOOR_Z0, wallCol, T.PLAIN, 'pxnxpz', true);
-    b.box(wx0, 0, DOOR_Z1, wx1, h, ZF, wallCol, T.PLAIN, 'pxnxnzpz', true);
-    b.box(wx0, DOOR_H, DOOR_Z0, wx1, h, DOOR_Z1, wallCol, T.PLAIN, 'pxnxny', true);
-    // Türrahmen in Akzentfarbe
-    const L = this.look; const fx0 = wx0 - 0.03, fx1 = wx1 + 0.03;
-    b.box(fx0, 0, DOOR_Z0 - 0.08, fx1, DOOR_H + 0.08, DOOR_Z0, L.akzent, T.PLAIN, 'pxnxpz');
-    b.box(fx0, 0, DOOR_Z1, fx1, DOOR_H + 0.08, DOOR_Z1 + 0.08, L.akzent, T.PLAIN, 'pxnxnzpz');
-    b.box(fx0, DOOR_H, DOOR_Z0, fx1, DOOR_H + 0.08, DOOR_Z1, L.akzent, T.PLAIN, 'pxnxny');
-    // Fenster in der Rückwand: Rahmen + Ausblick
-    const wxC = x0 + ROOM_W / 2, ww = 1.5, wh = 1.1, wy = 1.15;
-    const win = this.look.sterne ? T.NIGHTWIN : T.WINDOW;
-    b.quad([wxC - ww / 2, wy, Z0 + 0.01], [ww, 0, 0], [0, wh, 0], '#ffffff', win, 1, 1);
-    b.box(wxC - ww / 2 - 0.09, wy - 0.09, Z0, wxC + ww / 2 + 0.09, wy, Z0 + 0.09, '#ffffff', T.PLAIN, 'pypzny');
-    b.box(wxC - ww / 2 - 0.09, wy + wh, Z0, wxC + ww / 2 + 0.09, wy + wh + 0.09, Z0 + 0.06, '#ffffff', T.PLAIN, 'pzny');
-    b.box(wxC - ww / 2 - 0.09, wy, Z0, wxC - ww / 2, wy + wh, Z0 + 0.06, '#ffffff', T.PLAIN, 'pzpx');
-    b.box(wxC + ww / 2, wy, Z0, wxC + ww / 2 + 0.09, wy + wh, Z0 + 0.06, '#ffffff', T.PLAIN, 'pznx');
-    b.box(wxC - 0.03, wy, Z0, wxC + 0.03, wy + wh, Z0 + 0.04, '#ffffff', T.PLAIN, 'pz');
-    // Decke (Unterseite der nächsten Platte) heller
-    b.quad([x0, h - 0.001, Z0], [ROOM_W, 0, 0], [0, 0, ROOM_D], '#fffaf4', T.PLAIN, 6, 4, (u, v) => edgeAO(v * ROOM_D, 0.5, 0.2) * 0.95);
-    // Fußleiste
-    b.box(x0, 0, Z0, x1, 0.12, Z0 + 0.05, '#ffffff', T.PLAIN, 'pzpy');
-    // leeres Zimmer: Baustellen-Markierung (gestrichelte Kante)
-    if (!type) for (let i = 0; i < 8; i++) b.box(x0 + 0.25 + i * 0.56, 0.004, ZF - 0.32, x0 + 0.53 + i * 0.56, 0.02, ZF - 0.22, '#f2c46d', T.PLAIN, 'py');
+  wallAO(y, u, L) { return edgeAO(y, 0.45, 0.3) * edgeAO(u, 0.5, 0.18) * edgeAO(L - u, 0.5, 0.18) * (0.9 + 0.1 * Math.min(1, y / WH)); }
+  floorQuad(b, x0, z0, w, d, color, tile, uvs = [1, 1]) {
+    b.quad([x0, 0.002, z0 + d], [w, 0, 0], [0, 0, -d], color, tile, Math.max(2, Math.round(w * 2)), Math.max(2, Math.round(d * 2)),
+      (u, v) => edgeAO(u * w) * edgeAO((1 - u) * w) * edgeAO(v * d) * edgeAO((1 - v) * d), uvs);
   }
-  liftColumn(b, f, top) {
-    const L = this.look, h = FH - SLAB;
-    // Schacht-Rückwand + Schienen + Landefläche
-    b.quad([-LIFT / 2, 0, Z0 + 0.002], [LIFT, 0, 0], [0, h, 0], L.akzent, T.PLAIN, 3, 4, (u, v) => 0.86 + 0.14 * Math.sin(u * Math.PI));
-    for (const sx of [-0.45, 0.45]) b.box(sx - 0.04, 0, Z0, sx + 0.04, h, Z0 + 0.1, '#ffffff', T.PLAIN, 'pzpxnx');
-    b.quad([-LIFT / 2, 0.003, ZF], [LIFT, 0, 0], [0, 0, -ROOM_D], f === 0 ? '#f5ece2' : '#f6efe7', T.LOBBY, 2, 5, (u, v) => edgeAO(v * ROOM_D, 0.5, 0.25));
-    // Aufzugtür-Rahmen (Bogen angedeutet)
-    b.box(-0.62, 0, Z0 + 0.6, -0.52, 2.2, Z0 + 0.72, '#ffffff', T.PLAIN, 'pzpxnx');
-    b.box(0.52, 0, Z0 + 0.6, 0.62, 2.2, Z0 + 0.72, '#ffffff', T.PLAIN, 'pzpxnx');
-    b.box(-0.62, 2.2, Z0 + 0.6, 0.62, 2.34, Z0 + 0.72, '#ffffff', T.PLAIN, 'pzpyny');
-    // Etagen-Licht über der Tür (leuchtet über Bloom)
-    b.box(-0.12, 2.42, Z0 + 0.62, 0.12, 2.56, Z0 + 0.7, '#fff3b0', T.PLAIN, 'pz', false);
-  }
-  buildFloor(f, fl) {
-    const b = new GeoBuilder();
-    this.buildShell(b, f * FH, FH - SLAB, f);
-    fl.rooms.forEach((r, s) => this.roomInterior(b, s, r, f));
-    this.liftColumn(b, f);
+  // ---------- eine Ebene ----------
+  buildLevel(hotel, L) {
+    const b = new GeoBuilder(), Lk = this.look;
+    const wings = hotel.floors.map((f, i) => ({ w: i + 1, f })).filter((x) => wingLevel(x.w) === L);
+    const rows = wings.length;
+    const zBack = LOBBY_Z0 - rows * ROOM_D;
+    // Sockel / Boden-Platte unter der Ebene
+    if (L === 0) b.box(-HALF_W - 0.35, -0.3, zBack - 0.35, HALF_W + 0.35, 0.0, LOBBY_Z1 + 0.35, Lk.sockel, T.PLAIN, 'pxnxpznzpy');
+    else if (rows) b.box(-HALF_W - 0.1, -SLAB, zBack - 0.1, HALF_W + 0.1, 0, LOBBY_Z0 + 0.1, Lk.sockel, T.PLAIN, 'pxnxpznzpyny');
+    // Lobby (nur Erdgeschoss)
+    if (L === 0) this.buildLobby(b);
+    // Flügel
+    for (const { w, f } of wings) {
+      const r = wingRow(w), z0 = roomZ0(w), z1 = z0 + ROOM_D, last = r === rows;
+      f.rooms.forEach((room, side) => {
+        const [ft, fc] = room.type ? FLOOR_TILE[room.type] : [T.PLAIN, '#e7ddd2'];
+        this.floorQuad(b, roomX0(side), z0, ROOM_W, ROOM_D, fc, ft);
+        if (!room.type) for (let i = 0; i < 8; i++) b.box(roomX0(side) + 0.25 + i * 0.56, 0.004, z1 - 0.32, roomX0(side) + 0.53 + i * 0.56, 0.02, z1 - 0.22, '#f2c46d', T.PLAIN, 'py');
+      });
+      // Gang mit Läufer
+      this.floorQuad(b, -CORR / 2, z0, CORR, ROOM_D, Lk.sterne ? '#e6e9f5' : '#f6ece2', T.PLAIN);
+      b.box(-0.42, 0.003, z0, 0.42, 0.012, z1, Lk.akzent, T.LOBBY, 'py');
+      const A = { room: f.rooms[0], w, side: 0 }, B = { room: f.rooms[1], w, side: 1 };
+      const dz0 = z0 + DOOR_GZ * CELL, dz1 = dz0 + CELL;
+      // Außenwände links/rechts (mit Fenster), Gangwände mit Türen
+      this.wall(b, 'x', -HALF_W, z0, z1, A, 'out', { window: true });
+      this.wall(b, 'x', HALF_W, z0, z1, 'out', B, { window: true });
+      this.wall(b, 'x', -CORR / 2, z0, z1, 'corr', A, { doors: [{ a: dz0 + 0.06, b: dz1 - 0.06 }] });
+      this.wall(b, 'x', CORR / 2, z0, z1, B, 'corr', { doors: [{ a: dz0 + 0.06, b: dz1 - 0.06 }] });
+      // Trennwand nach hinten (bzw. Rückwand außen beim letzten Flügel)
+      const behind = last ? 'out' : null;
+      this.wall(b, 'z', z0, -HALF_W, -CORR / 2, A, behind || { room: hotel.floors[w].rooms[0], w: w + 1, side: 0 }, { window: last });
+      this.wall(b, 'z', z0, CORR / 2, HALF_W, B, behind || { room: hotel.floors[w].rooms[1], w: w + 1, side: 1 }, { window: last });
+      if (last) this.wall(b, 'z', z0, -CORR / 2, CORR / 2, 'corr', 'out', { window: true });
+      // vorn: im Erdgeschoss Flügel 1 an der Lobby-Rückwand (baut buildLobby), sonst Wand zum vorderen Flügel bzw. außen
+      if (r === 1 && L > 0) {
+        this.wall(b, 'z', z1, -HALF_W, -CORR / 2, 'out', A, {});
+        this.wall(b, 'z', z1, CORR / 2, HALF_W, 'out', B, {});
+        this.wall(b, 'z', z1, -CORR / 2, CORR / 2, 'out', 'corr', {});
+      }
+    }
+    // nächster Bauplatz (Erdgeschoss): gestrichelter Umriss auf dem Rasen
+    const nx = hotel.floors.length + 1;
+    if (L === 0 && nx <= ROWS_PER_LEVEL) {
+      const z1p = roomZ0(nx) + ROOM_D, z0p = roomZ0(nx);
+      for (let x = -HALF_W; x < HALF_W - 0.1; x += 0.7) { b.box(x, 0.01, z0p - 0.06, x + 0.4, 0.05, z0p + 0.06, '#ffd27a', T.PLAIN, 'py'); }
+      for (let z = z0p; z < z1p - 0.1; z += 0.7) for (const x of [-HALF_W, HALF_W]) b.box(x - 0.06, 0.01, z, x + 0.06, 0.05, z + 0.4, '#ffd27a', T.PLAIN, 'py');
+    }
+    // Aufzug am Gang-Anfang (wenn es einen 1. Stock gibt oder geben wird): Glas-Pfosten + Plattform
+    if (rows) {
+      const zl = LOBBY_Z0 - 0.7;
+      for (const [x, z] of [[-0.62, zl - 0.55], [0.62, zl - 0.55], [-0.62, zl + 0.55], [0.62, zl + 0.55]]) b.box(x - 0.05, 0, z - 0.05, x + 0.05, WH * 0.9, z + 0.05, '#ffffff', T.PLAIN, 'pxnxpznz');
+      b.box(-0.62, WH * 0.9, zl - 0.6, 0.62, WH * 0.9 + 0.08, zl + 0.6, Lk.akzent, T.PLAIN, 'py');
+    }
     return b.build();
   }
-  buildLobby() {
-    const b = new GeoBuilder(), L = this.look, h = FH - SLAB;
-    // Sockel unter dem Erdgeschoss
-    b.box(-HALF_W - WT - 0.1, -0.45, Z0 - WT - 0.1, HALF_W + WT + 0.1, 0, ZF + 0.25, L.sockel, T.PLAIN, 'pxnxpzpy');
-    // Boden
-    b.quad([-HALF_W, 0.002, ZF], [HALF_W * 2, 0, 0], [0, 0, -ROOM_D], '#fbf3ea', T.LOBBY, 14, 8, (u, v) => edgeAO(v * ROOM_D) * edgeAO(u * HALF_W * 2) * edgeAO((1 - u) * HALF_W * 2), [1, 1]);
-    // Rückwand mit zwei Fenstern
-    const wall = this.look.sterne ? '#e3e8fb' : '#fff0dc';
-    b.quad([-HALF_W, 0, Z0 + 0.001], [HALF_W * 2, 0, 0], [0, h, 0], wall, this.look.sterne ? T.STARS : T.STRIPES, 18, 6, (u, v) => edgeAO(v * h, 0.5, 0.36) * edgeAO((1 - v) * h, 0.4, 0.2) * edgeAO(u * HALF_W * 2) * edgeAO((1 - u) * HALF_W * 2));
-    const win = this.look.sterne ? T.NIGHTWIN : T.WINDOW;
-    for (const cx of [-3.2]) {
-      b.quad([cx - 0.9, 1.0, Z0 + 0.01], [1.8, 0, 0], [0, 1.2, 0], '#ffffff', win, 1, 1);
-      b.box(cx - 1.0, 0.9, Z0, cx + 1.0, 1.0, Z0 + 0.1, '#ffffff', T.PLAIN, 'pypz');
-      b.box(cx - 1.0, 2.2, Z0, cx + 1.0, 2.3, Z0 + 0.06, '#ffffff', T.PLAIN, 'pzny');
-      b.box(cx - 1.0, 1.0, Z0, cx - 0.9, 2.2, Z0 + 0.06, '#ffffff', T.PLAIN, 'pz');
-      b.box(cx + 0.9, 1.0, Z0, cx + 1.0, 2.2, Z0 + 0.06, '#ffffff', T.PLAIN, 'pz');
-    }
-    // Außenwände: links mit Eingangstür (z 0..1.2), rechts voll
-    const x0 = -HALF_W - WT, dz0 = 0.0, dz1 = 1.25;
-    b.box(x0, 0, Z0 - WT, -HALF_W, h, dz0, L.wand, this.facadeTile(), 'nxpxpz', true);
-    b.box(x0, 0, dz1, -HALF_W, h, ZF, L.wand, this.facadeTile(), 'nxpxnzpz', true);
-    b.box(x0, 2.3, dz0, -HALF_W, h, dz1, L.wand, this.facadeTile(), 'nxpxny', true);
-    b.box(x0 - 0.06, 0, dz0 - 0.1, -HALF_W + 0.04, 2.38, dz0, L.akzent, T.PLAIN, 'nxpzpx');
-    b.box(x0 - 0.06, 0, dz1, -HALF_W + 0.04, 2.38, dz1 + 0.1, L.akzent, T.PLAIN, 'nxnzpzpx');
-    b.box(x0 - 0.06, 2.3, dz0 - 0.1, -HALF_W + 0.04, 2.42, dz1 + 0.1, L.akzent, T.PLAIN, 'nxpyny');
-    // Vordach über dem Eingang (gestreift)
-    b.box(x0 - 1.1, 2.5, dz0 - 0.35, x0, 2.62, dz1 + 0.35, L.dach, T.STRIPES, 'pynynxpznz');
-    b.box(-HALF_W - 0.02, 0, ZF - 0.02, -HALF_W + 0.02, h, ZF, L.wand, T.PLAIN, 'pz');
-    b.box(HALF_W, 0, Z0 - WT, HALF_W + WT, h, ZF, L.wand, this.facadeTile(), 'pxnxpz', true);
-    b.box(-HALF_W - WT - 0.02, h - 0.02, ZF - 0.04, HALF_W + WT + 0.02, h + 0.0, ZF + 0.1, L.akzent, T.PLAIN, 'pz');
-    // Innen: Wände an den Seiten innen tapeziert
-    b.quad([-HALF_W + 0.001, 0, Z0], [0, 0, dz0 - Z0], [0, h, 0], wall, T.PLAIN, 3, 4, (u, v) => edgeAO(v * h, 0.5, 0.3));
-    b.quad([HALF_W - 0.001, 0, ZF], [0, 0, -ROOM_D], [0, h, 0], wall, T.PLAIN, 6, 4, (u, v) => edgeAO(v * h, 0.5, 0.3) * edgeAO((1 - u) * ROOM_D, 0.6, 0.25));
-    b.quad([-HALF_W, h - 0.001, Z0], [HALF_W * 2, 0, 0], [0, 0, ROOM_D], '#fffaf4', T.PLAIN, 10, 4, (u, v) => edgeAO(v * ROOM_D, 0.5, 0.2) * 0.95);
-    b.box(-HALF_W, 0, Z0, HALF_W, 0.12, Z0 + 0.05, '#ffffff', T.PLAIN, 'pzpy');
-    // Aufzug hinten in der Mitte
-    b.quad([-LIFT / 2, 0, Z0 + 0.004], [LIFT, 0, 0], [0, h, 0], L.akzent, T.PLAIN, 2, 3, (u, v) => 0.86 + 0.14 * Math.sin(u * Math.PI));
-    for (const sx of [-0.45, 0.45]) b.box(sx - 0.04, 0, Z0, sx + 0.04, h, Z0 + 0.1, '#ffffff', T.PLAIN, 'pzpxnx');
-    b.box(-0.9, 0, Z0, -0.8, 2.4, Z0 + 0.7, '#ffffff', T.PLAIN, 'pzpxnx');
-    b.box(0.8, 0, Z0, 0.9, 2.4, Z0 + 0.7, '#ffffff', T.PLAIN, 'pzpxnx');
-    b.box(-0.9, 2.4, Z0, 0.9, 2.55, Z0 + 0.7, '#ffffff', T.PLAIN, 'pzpyny');
-    // Rezeption: Theke mit Holzfront + Platte + Klingel, Schild darüber
+  buildLobby(b) {
+    const Lk = this.look, z0 = LOBBY_Z0, z1 = LOBBY_Z1;
+    this.floorQuad(b, -HALF_W, z0, HALF_W * 2, z1 - z0, '#fbf3ea', T.LOBBY, [3, 1]);
+    // Teppich-Weg vom Eingang zur Theke
+    b.box(-5.3, 0.003, 0.25, 3.0, 0.012, 0.95, Lk.akzent, T.LOBBY, 'py');
+    // Rückwand zur Flügel-Reihe 1 (Durchgang zum Gang in der Mitte), Seitenwände (links Eingang), Front (außen)
+    const n = this.hotel.floors.length;
+    const f1 = n ? this.hotel.floors[0] : null;
+    const backA = f1 ? { room: f1.rooms[0], w: 1, side: 0 } : 'out', backB = f1 ? { room: f1.rooms[1], w: 1, side: 1 } : 'out';
+    this.wall(b, 'z', z0, -HALF_W, -CORR / 2, 'lobby', backA, { window: !f1 });
+    this.wall(b, 'z', z0, CORR / 2, HALF_W, 'lobby', backB, { window: !f1 });
+    if (!f1) this.wall(b, 'z', z0, -CORR / 2, CORR / 2, 'lobby', 'out', {});
+    this.wall(b, 'x', -HALF_W, z0, z1, 'lobby', 'out', { doors: [{ a: 0.0, b: 1.25, h: 2.2 }], window: false });
+    this.wall(b, 'x', HALF_W, z0, z1, 'out', 'lobby', { window: true });
+    this.wall(b, 'z', z1, -HALF_W, HALF_W, 'out', 'lobby', { window: true });
+    // Vordach über dem Eingang
+    b.box(-HALF_W - 1.2, 2.3, -0.3, -HALF_W - 0.05, 2.42, 1.55, Lk.dach, T.STRIPES, 'pynynxpznz');
+    // Rezeption: Theke mit Holzfront + Platte + Klingel, Schild
     const dx0 = 3.15, dx1 = 5.35, dz = -0.55;
-    b.box(dx0, 0, dz - 0.75, dx1, 1.0, dz, '#f6dfc6', T.DESK, 'pzpxnx', true);
-    b.box(dx0 - 0.08, 1.0, dz - 0.82, dx1 + 0.08, 1.1, dz + 0.1, L.akzent, T.PLAIN, 'pypzpxnxny');
+    b.box(dx0, 0, dz - 0.75, dx1, 1.0, dz, '#f6dfc6', T.DESK, 'pzpxnxnz', true);
+    b.box(dx0 - 0.08, 1.0, dz - 0.82, dx1 + 0.08, 1.1, dz + 0.1, Lk.akzent, T.PLAIN, 'pypzpxnxny');
     b.box(4.0, 1.1, dz - 0.3, 4.16, 1.2, dz - 0.14, '#ffd36b', T.PLAIN, 'pypzpxnx');
-    b.box(3.5, 2.05, Z0 + 0.02, 5.0, 2.65, Z0 + 0.08, '#ffffff', T.PLAIN, 'pz');
-    b.quad([3.55, 2.1, Z0 + 0.085], [1.4, 0, 0], [0, 0.5, 0], '#ffffff', T.SIGN, 1, 1);
-    return b.build();
+    // Hotelschild im Vorgarten (zur Standard-Blickrichtung)
+    b.box(-1.55, 0, z1 + 1.9, -1.45, 1.2, z1 + 2.0, '#ffffff', T.PLAIN, 'pxnxpznz'); b.box(1.45, 0, z1 + 1.9, 1.55, 1.2, z1 + 2.0, '#ffffff', T.PLAIN, 'pxnxpznz');
+    b.box(-1.75, 1.15, z1 + 1.85, 1.75, 2.75, z1 + 2.02, Lk.akzent, T.PLAIN, 'pxnxnzpy');
+    b.quad([-1.65, 1.22, z1 + 2.03], [3.3, 0, 0], [0, 1.46, 0], '#ffffff', T.SIGN, 1, 1);
   }
-  buildRoof() {
-    const g = new THREE.Group(), L = this.look, b = new GeoBuilder();
-    const xr = HALF_W + 0.7, zb = Z0 - 0.7, zf = ZF + 0.7;
-    if (L.dachForm === 'kuppel') {
-      b.box(-HALF_W - WT - 0.2, -SLAB, Z0 - WT - 0.2, HALF_W + WT + 0.2, 0.3, ZF + 0.3, L.sockel, T.METAL, 'pxnxpzpyny');
-      b.box(-HALF_W - WT - 0.25, 0.3, ZF + 0.25, HALF_W + WT + 0.25, 0.42, ZF + 0.38, L.dachKante, T.PLAIN, 'pzpy', false);
-      // Schild
-      b.box(-1.7, 0.3, 1.2, 1.7, 2.2, 1.35, '#ffffff', T.PLAIN, 'pznx');
-      b.quad([-1.6, 0.4, 1.36], [3.2, 0, 0], [0, 1.7, 0], '#ffffff', T.SIGN, 1, 1);
-      const m = new THREE.Mesh(b.build(), this.mat); m.castShadow = false; m.receiveShadow = true; g.add(m);
-      const dome = new THREE.Mesh(new THREE.SphereGeometry(4.6, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), this.glassMat);
-      dome.scale.set(1.25, 0.75, 0.55); dome.position.set(0, 0.3, -0.6); dome.renderOrder = 5; g.add(dome);
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(4.6, 0.12, 8, 48), new THREE.MeshLambertMaterial({ color: L.dachKante }));
-      ring.rotation.x = Math.PI / 2; ring.scale.set(1.25, 0.55, 1); ring.position.set(0, 0.32, -0.6); g.add(ring);
-      const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.6), new THREE.MeshLambertMaterial({ color: 0xdde3f0 }));
-      ant.position.set(3.6, 3.4, -0.8); g.add(ant);
-      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 8), new THREE.MeshBasicMaterial({ color: 0xff8a7a }));
-      tip.position.set(3.6, 4.25, -0.8); g.add(tip); this.blink = tip;
-      return g;
-    }
-    // Giebeldach: Traufe vorn/hinten, First in der Mitte
-    const ridge = 2.7, y0 = -0.02;
-    b.box(-HALF_W - WT, -SLAB, Z0 - WT, HALF_W + WT, 0.02, ZF + 0.12, L.sockel, T.PLAIN, 'pxnxny');
-    const roofC = L.dach;
-    // vordere Dachfläche (Normale nach vorn-oben)
-    b.quad([-xr, y0, zf], [xr * 2, 0, 0], [0, ridge, (zb + zf) / 2 - zf], roofC, T.ROOF, 1, 1, null, [1, 1]);
-    b.quad([xr, y0, zb], [-xr * 2, 0, 0], [0, ridge, (zb + zf) / 2 - zb], roofC, T.ROOF, 1, 1, () => 0.85);
-    // Giebeldreiecke (als dünne Quader-Stufen)
-    for (const sx of [-1, 1]) {
-      const x = sx * (HALF_W + WT);
-      for (let i = 0; i < 6; i++) { const t0 = i / 6, t1 = (i + 1) / 6; const hz = (zf - zb) / 2 * (1 - t0) - 0.65; b.box(sx < 0 ? x : x - 0.18, y0 + ridge * t0 * 0.92, (zb + zf) / 2 - hz, sx < 0 ? x + 0.18 : x, y0 + ridge * t1 * 0.92, (zb + zf) / 2 + hz, L.wand, T.SIDING, sx < 0 ? 'nxpz' : 'pxpz'); }
-    }
-    // Traufkante
-    b.box(-xr - 0.05, y0 - 0.14, zf - 0.04, xr + 0.05, y0 + 0.08, zf + 0.12, L.dachKante, T.PLAIN, 'pzpyny', false);
-    // Schornstein
-    b.box(3.2, 0.9, -1.4, 3.9, 3.0, -0.7, '#f3c6a8', T.PLAIN, 'pxnxpzpy');
-    b.box(3.1, 3.0, -1.5, 4.0, 3.2, -0.6, L.dachKante, T.PLAIN, 'pxnxpzpy');
-    // Schild auf der Dachfläche
-    b.box(-1.75, 0.45, 1.75, 1.75, 2.35, 1.95, '#ffffff', T.PLAIN, 'pzpxnxpy');
-    b.quad([-1.65, 0.55, 1.96], [3.3, 0, 0], [0, 1.7, 0], '#ffffff', T.SIGN, 1, 1);
-    const m = new THREE.Mesh(b.build(), this.mat); m.castShadow = false; m.receiveShadow = true; g.add(m);
+  // Mond: Glaskuppeln über den Räumen (ausgeblendet beim Heranzoomen, Deckkraft setzt die App)
+  buildDomes(hotel, L) {
+    const g = new THREE.Group(); this.domes = this.domes || [];
+    const geo = new THREE.SphereGeometry(1, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2);
+    const add = (x, z, w, d, h) => { const m = new THREE.Mesh(geo, this.glassMat); m.scale.set(w / 2, h, d / 2); m.position.set(x, 0, z); m.renderOrder = 6; g.add(m); this.domes.push(m); };
+    if (L === 0) add(0, 0, HALF_W * 2 + 1.2, LOBBY_Z1 - LOBBY_Z0 + 1.4, 3.2);
+    hotel.floors.forEach((f, i) => { const w = i + 1; if (wingLevel(w) !== L) return; add(0, wingZc(w), HALF_W * 2 + 0.8, ROOM_D + 0.6, 2.9); });
     return g;
   }
 }
+void ROWS_PER_LEVEL;
