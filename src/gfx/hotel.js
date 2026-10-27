@@ -36,6 +36,7 @@ export class HotelView {
       this.group.add(g); this.floorGroups.push(g);
     }
     this.roof = this.buildRoof(); this.roof.position.y = (n + 1) * FH; this.group.add(this.roof);
+    this.buildLamps(hotel);
     this.topY = (n + 1) * FH;
     if (animateFloor > 0) {
       const g = this.floorGroups[animateFloor];
@@ -44,12 +45,42 @@ export class HotelView {
       this.anims.push({ t: 0, dur: 0.9, fn: (k) => { r.position.y = y1 - FH * (1 - Math.min(1, k < 1 ? 1 - Math.cos(k * Math.PI * 1.6) * Math.exp(-k * 4.2) : 1)); } });
     }
   }
+  // Deckenlampen (leuchten über Bloom) + warmer Lichtschein auf Boden und Rückwand – je 1 Draw-Call für alle Zimmer
+  buildLamps(hotel) {
+    if (!this.lampMesh) {
+      const warm = this.look.sterne ? new THREE.Color(1.9, 1.75, 1.45) : new THREE.Color(2.1, 1.75, 1.2);
+      this.lampMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.26, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshBasicMaterial({ color: warm }), 40);
+      this.lampMesh.rotation.x = 0; this.lampMesh.frustumCulled = false;
+      const cv = document.createElement('canvas'); cv.width = cv.height = 64; const k = cv.getContext('2d');
+      const g = k.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,214,150,0.55)'); g.addColorStop(0.6, 'rgba(255,200,140,0.18)'); g.addColorStop(1, 'rgba(255,200,140,0)');
+      k.fillStyle = g; k.fillRect(0, 0, 64, 64);
+      this.poolMesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: this.look.sterne ? 0.75 : 0.55 }), 80);
+      this.poolMesh.frustumCulled = false; this.poolMesh.renderOrder = 2;
+    }
+    this.group.add(this.lampMesh, this.poolMesh);
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), qf = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0)), qb = new THREE.Quaternion();
+    const spots = [{ x: -3.2, f: 0 }, { x: 3.2, f: 0 }];
+    hotel.floors.forEach((fl, i) => fl.rooms.forEach((r, sd) => { if (r.type) spots.push({ x: roomX0(sd) + ROOM_W / 2, f: i + 1 }); }));
+    let n = 0, k2 = 0;
+    for (const sp of spots) {
+      const y = sp.f * FH + FH - SLAB;
+      m.compose(new THREE.Vector3(sp.x, y - 0.01, -0.2), q.setFromEuler(new THREE.Euler(Math.PI, 0, 0)), new THREE.Vector3(1, 0.7, 1)); this.lampMesh.setMatrixAt(n++, m);
+      this.poolMesh.setMatrixAt(k2++, m.compose(new THREE.Vector3(sp.x, sp.f * FH + 0.02, -0.3), qf, new THREE.Vector3(3.6, 3.0, 1)));
+      this.poolMesh.setMatrixAt(k2++, m.compose(new THREE.Vector3(sp.x, sp.f * FH + 1.9, Z0 + 0.03), qb, new THREE.Vector3(3.8, 2.6, 1)));
+    }
+    this.lampMesh.count = n; this.poolMesh.count = k2; this.lampMesh.instanceMatrix.needsUpdate = true; this.poolMesh.instanceMatrix.needsUpdate = true;
+    this.lampFloors = spots.map((s2) => s2.f);
+  }
   update(dt) {
     for (const a of this.anims) { a.t += dt; a.fn(Math.min(1, a.t / a.dur)); }
     this.anims = this.anims.filter((a) => a.t < a.dur);
   }
   // Etagen oberhalb ausblenden (Einrichten-Ansicht von schräg oben)
-  showUpTo(f) { this.floorGroups.forEach((g, i) => (g.visible = i <= f)); if (this.roof) this.roof.visible = f >= 99; }
+  showUpTo(f) {
+    this.floorGroups.forEach((g, i) => (g.visible = i <= f)); if (this.roof) this.roof.visible = f >= 99;
+    // Lampen oberer Etagen ausblenden: Instanzen hinter der Grenze abschneiden (Reihenfolge = Etagen aufsteigend)
+    if (this.lampFloors) { const n = this.lampFloors.filter((x) => x <= f).length; this.lampMesh.count = n; this.poolMesh.count = n * 2; }
+  }
 
   // ---------- Bausteine ----------
   facadeTile() { return this.look.fassade === 'metall' ? T.METAL : T.SIDING; }
