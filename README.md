@@ -5,13 +5,18 @@ Handy zuerst (hoch und quer), läuft auch am Computer. Spielen: **https://drpete
 („Zum Startbildschirm hinzufügen" → läuft wie eine App, auch offline).
 
 ## Spielidee
-- Das Hotel ist ein **aufgeschnittenes Puppenhaus**: Etagen stapeln sich, jede Etage hat zwei Zimmer und einen Aufzug.
+- Das Hotel liegt in einer **3D-Draufsicht** (schräg von oben, wie Sims/Two Point Hotel, aber niedlich): Lobby vorn, ein Gang nach
+  hinten mit Zimmern links und rechts. Das Hotel wächst **in die Fläche** (🏗️ Anbau = neuer Flügel mit zwei Zimmern), ab dem
+  5. Anbau entsteht ein 1. Stock (Aufzug am Gang-Anfang, Etagen-Knöpfe ▲/▼). Wände zur Kamera hin senken sich automatisch ab,
+  damit man immer in die Zimmer sieht; keine Decken.
+- **Kamera:** ein Finger = verschieben, zwei Finger = zoomen, drehen (rastet auf 45° ein) und kippen; Knöpfe ⟲ ⟳.
+  Am Computer: Maus ziehen = verschieben, rechte Maustaste = drehen/kippen, Rad = zoomen, Q/E = drehen, R/F = kippen.
 - **Gäste** reisen an (Blumen-Zug bzw. Mond-Shuttle), warten fröhlich in der Lobby und zeigen ihre **Wünsche als Bilder**
   (🛏️ weiches Bett, 🌸 Blumen, 🍰 Kuchen, 🛁 Baden …). Gast antippen → Zimmer mit ❤️ antippen → der Gast läuft hin (Aufzug!),
   benutzt die Möbel (essen, tanzen, schlafen), reist ab und gibt **1–5 Herzen + Münzen**.
-- **Einrichten**: Zimmer antippen → Möbel aus der Leiste ins Zimmer ziehen (grün = passt), antippen = drehen, umfärben,
+- **Einrichten** (in derselben Ansicht – die Kamera fliegt aufs Zimmer, das Raster erscheint): Zimmer antippen → Möbel aus der Leiste ins Zimmer ziehen (grün = passt), antippen = drehen, umfärben,
   wegnehmen, Rückgängig. Tapete wechseln. Wegnehmen gibt das Geld zurück.
-- **Bauen**: neue Etagen (🏗️), Zimmer-Typen (Schlafzimmer, Restaurant, Bad & Spa, Spielzimmer), Ausflugsort.
+- **Bauen**: Anbauten (🏗️), Zimmer-Typen (Schlafzimmer, Restaurant, Bad & Spa, Spielzimmer), Ausflugsort.
 - **Sterne**: Herzen bringen Hotel-Sterne → neue Möbel, mehr Etagen und neue Welten.
 - **Ausflüge mit Mitmach-Spiel** (45 s, man kann nicht verlieren): Blumenpicknick (Schmetterlinge und Leckereien antippen)
   und Mond-Ausflug im Raumanzug (Tippen = riesiger Mondsprung, ~5 s in der Luft, Mondsteine und Sternenstaub sammeln).
@@ -36,7 +41,7 @@ Handy zuerst (hoch und quer), läuft auch am Computer. Spielen: **https://drpete
 Beispiel: `…/hotel-kuschelpfote/?alles=1&welt=mond`
 
 ## Technik
-three.js r186 ohne Build (ES-Module, Import-Map), eigene Puppenhaus-Geometrie mit gebackener Umgebungsverdeckung,
+three.js r186 ohne Build (ES-Module, Import-Map), eigener Grundriss (Wände je Blickrichtung abgesenkt) mit gebackener Umgebungsverdeckung,
 instanzierte Möbel/Tiere (wenige Draw-Calls), weiche Kontaktschatten, Bloom + Pastell-Grading, PWA mit Service-Worker
 (Version = Inhalts-Hash, im Menü sichtbar). Ton wird im Browser erzeugt (iPhone: `audioSession = 'ambient'`, Lautlos-Schalter wird respektiert).
 
@@ -44,7 +49,7 @@ instanzierte Möbel/Tiere (wenige Draw-Calls), weiche Kontaktschatten, Bloom + P
 src/core/      Spiel-Logik ohne Grafik (Hotel, Wegfindung, Gäste, Wünsche, Wirtschaft, Speichern, Autopilot) – Node-getestet
 src/worlds/    eine Datei je Welt (nur Daten) + index.js
 src/excursions/ ein Mitmach-Spiel je Ausflug
-src/gfx/       Renderer/Nachbearbeitung, Puppenhaus, Kulissen (env_<welt>.js), Tiere, Partikel
+src/gfx/       Renderer/Nachbearbeitung, Hotel-Grundriss (hotel.js), Kulissen (env_<welt>.js), Tiere, Partikel
 src/game/      Kamera, Eingabe, Einrichten, Ausflug-System, Anleitung
 src/ui/        Sprechblasen/Marken, Fenster und Bildschirme
 tools/         Asset-Pipeline (build_assets.mjs), Service-Worker (update_sw.py), Tier-Bilder (thumbs.html)

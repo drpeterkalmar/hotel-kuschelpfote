@@ -33,7 +33,7 @@ button.big .price { font-size: 11px; font-weight: 900; color: #b07a20; }
 #worldName { margin-left: auto; font-size: 15px; }
 
 /* Kamera: drehen + Etagen (hoch: rechts mittig, quer: links) */
-#camBtns { position: absolute; right: calc(8px + var(--safeR)); top: calc(96px + var(--safeT)); display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+#camBtns { position: absolute; right: calc(8px + var(--safeR)); top: calc(190px + var(--safeT)); display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
 #camBtns > *, #lvl > * { pointer-events: auto; }
 #camBtns button.round { font-size: 26px; font-weight: 900; }
 #lvl { display: flex; flex-direction: column; gap: 6px; align-items: center; margin-top: 8px; }

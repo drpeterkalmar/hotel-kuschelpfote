@@ -1,0 +1,242 @@
+{
+ "datum": "2026-10-27T19:53:39",
+ "stand": "n1_draufsicht",
+ "wurzel": "/Users/wohnzimmer/dev/hotel-kuschelpfote",
+ "git": "6e664f3",
+ "profil": {
+  "drossel": 4,
+  "dpr": 2.6,
+  "sek": 8.0,
+  "geraete": "hoch,quer",
+  "gpu": "ANGLE/Metal headless",
+  "start": "open",
+  "vsync": false,
+  "zusatz": ""
+ },
+ "szenen": {
+  "hotel_wiese": {
+   "hoch": {
+    "n": 2170,
+    "p50": 3.5,
+    "p95": 5.5,
+    "p99": 8.7,
+    "fps": 270.7,
+    "calls": 79,
+    "callsMax": 103,
+    "tris": 71934,
+    "tex": 15,
+    "gpu50": null,
+    "gpu95": null,
+    "zusatz": {
+     "gaeste": 7,
+     "etagen": 5,
+     "dpr": 1.75,
+     "gl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)"
+    },
+    "boot_s": 0.4,
+    "fehler": []
+   },
+   "quer": {
+    "n": 2265,
+    "p50": 3.4,
+    "p95": 5.2,
+    "p99": 6.7,
+    "fps": 282.9,
+    "calls": 87,
+    "callsMax": 87,
+    "tris": 71082,
+    "tex": 15,
+    "gpu50": null,
+    "gpu95": null,
+    "zusatz": {
+     "gaeste": 6,
+     "etagen": 5,
+     "dpr": 1.75,
+     "gl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)"
+    },
+    "boot_s": 0.5,
+    "fehler": []
+   }
+  },
+  "hotel_mond": {
+   "hoch": {
+    "n": 2111,
+    "p50": 3.8,
+    "p95": 4.7,
+    "p99": 5.1,
+    "fps": 263.6,
+    "calls": 95,
+    "callsMax": 95,
+    "tris": 56790,
+    "tex": 15,
+    "gpu50": null,
+    "gpu95": null,
+    "zusatz": {
+     "gaeste": 7,
+     "etagen": 5,
+     "dpr": 1.75,
+     "gl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)"
+    },
+    "boot_s": 0.3,
+    "fehler": []
+   },
+   "quer": {
+    "n": 1756,
+    "p50": 4.5,
+    "p95": 6,
+    "p99": 6.7,
+    "fps": 219.3,
+    "calls": 102,
+    "callsMax": 104,
+    "tris": 58721,
+    "tex": 16,
+    "gpu50": null,
+    "gpu95": null,
+    "zusatz": {
+     "gaeste": 9,
+     "etagen": 5,
+     "dpr": 1.75,
+     "gl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)"
+    },
+    "boot_s": 0.3,
+    "fehler": []
+   }
+  },
+  "einrichten": {
+   "hoch": {
+    "n": 2352,
+    "p50": 3.4,
+    "p95": 4.6,
+    "p99": 5.1,
+    "fps": 293.8,
+    "calls": 76,
+    "callsMax": 76,
+    "tris": 67725,
+    "tex": 16,
+    "gpu50": null,
+    "gpu95": null,
+    "zusatz": {
+     "gaeste": 7,
+     "etagen": 4,
+     "dpr": 1.75,
+     "gl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)"
+    },
+    "boot_s": 0.4,
+    "fehler": []
+   },
+   "quer": {
+    "n": 2344,
+    "p50": 3.4,
+    "p95": 4.6,
+    "p99": 5.3,
+    "fps": 292.7,
+    "calls": 72,
+    "callsMax": 72,
+    "tris": 68834,
+    "tex": 16,
+    "gpu50": null,
+    "gpu95": null,
+    "zusatz": {
+     "gaeste": 6,
+     "etagen": 4,
+     "dpr": 1.75,
+     "gl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)"
+    },
+    "boot_s": 0.5,
+    "fehler": []
+   }
+  },
+  "mondsprung": {
+   "hoch": {
+    "n": 2267,
+    "p50": 3.5,
+    "p95": 4.9,
+    "p99": 5.7,
+    "fps": 283.1,
+    "calls": 48,
+    "callsMax": 60,
+    "tris": 42971,
+    "tex": 20,
+    "gpu50": null,
+    "gpu95": null,
+    "zusatz": {
+     "gaeste": 0,
+     "etagen": 1,
+     "dpr": 1.75,
+     "gl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)"
+    },
+    "boot_s": 0.4,
+    "fehler": []
+   },
+   "quer": {
+    "n": 2260,
+    "p50": 3.5,
+    "p95": 4.8,
+    "p99": 5.3,
+    "fps": 282.2,
+    "calls": 50,
+    "callsMax": 63,
+    "tris": 43436,
+    "tex": 21,
+    "gpu50": null,
+    "gpu95": null,
+    "zusatz": {
+     "gaeste": 0,
+     "etagen": 1,
+     "dpr": 1.75,
+     "gl": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)"
+    },
+    "boot_s": 0.5,
+    "fehler": []
+   }
+  }
+ },
+ "ladegroesse": {
+  "dateien": 48,
+  "roh_mb": 1.52,
+  "gzip_mb": 0.48,
+  "extern": [],
+  "groesste_gzip_kb": [
+   [
+    "lib/three.core.min.js",
+    104
+   ],
+   [
+    "lib/three.module.min.js",
+    92
+   ],
+   [
+    "assets/models/mond.glb",
+    51
+   ],
+   [
+    "assets/pets/bee.glb",
+    23
+   ],
+   [
+    "assets/pets/bunny.glb",
+    22
+   ],
+   [
+    "assets/pets/chick.glb",
+    22
+   ],
+   [
+    "assets/pets/cow.glb",
+    19
+   ],
+   [
+    "assets/pets/pig.glb",
+    19
+   ],
+   [
+    "icons/icon-192.png",
+    17
+   ],
+   [
+    "lib/addons/loaders/GLTFLoader.js",
+    14
+   ]
+  ]
+ }
+}

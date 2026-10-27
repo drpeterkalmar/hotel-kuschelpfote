@@ -100,7 +100,7 @@ with Server() as srv, sync_playwright() as pw:
         y0 = s.ev("__app.camCtl.h.tyaw"); k0 = s.ev("__app.hotelView.viewKey")
         s.tap('#bRotR'); time.sleep(1.2)
         check(abs(s.ev("__app.camCtl.h.tyaw") - y0 - 0.785) < 0.01 and s.ev("__app.hotelView.viewKey") != k0, 'Drehen per Knopf (45°, Wände neu)')
-        cdp = s.ctx.new_cdp_session(s.pg); cx, cy = (s.pg.viewport_size['width'] / 2, s.pg.viewport_size['height'] / 2)
+        cdp = s.ctx.new_cdp_session(s.pg); cx, cy = (s.pg.viewport_size['width'] * (0.6 if dname == 'quer' else 0.42), s.pg.viewport_size['height'] * (0.45 if dname == 'quer' else 0.72))
         cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [{'x': cx - 80, 'y': cy, 'id': 1}, {'x': cx + 80, 'y': cy, 'id': 2}]})
         for i in range(1, 11):
             a = 0.09 * i; import math
@@ -111,7 +111,12 @@ with Server() as srv, sync_playwright() as pw:
         s.shot(f'gedreht_{dname}', 'play')
         s.ev("__game.setCam({yaw: 0})"); time.sleep(0.5)
         # leeres Zimmer → Zimmer-Typ wählen
-        s.tap('#overlay .badge.build'); time.sleep(0.4)
+        bb = s.ev("""(() => { for (const e of document.querySelectorAll('#overlay .badge.build')) { if (!e.textContent.includes('Zimmer') || e.style.display === 'none') continue;
+            const r = e.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2; const h = document.elementFromPoint(x, y); if (h && (h === e || e.contains(h))) return { x, y }; } return null; })()""")
+        if not bb:
+            s.ev("__game.setCam({dist: 30})"); time.sleep(1.0)
+            bb = s.ev("""(() => { for (const e of document.querySelectorAll('#overlay .badge.build')) { if (!e.textContent.includes('Zimmer') || e.style.display === 'none') continue; const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; } return null; })()""")
+        s.tap_xy(bb['x'], bb['y']); time.sleep(0.4)
         check(s.ev("!document.getElementById('modal').classList.contains('hidden')"), 'Zimmer-Typ-Auswahl offen')
         s.shot(f'zimmertyp_{dname}', 'play')
         s.tap('#modal .opt[data-t="schlaf"]'); time.sleep(0.5)
