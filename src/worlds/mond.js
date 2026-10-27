@@ -14,13 +14,13 @@ export default {
   // Schwerkraft als Bruchteil von g (?schwerkraft=). Gäste hüpfen in hohen, langsamen Bögen.
   get physik() { return { schwerkraft: CFG.schwerkraft, laufFaktor: 0.85, huepfen: 1, drinnen: 0.35 }; },
   look: {
-    himmelOben: '#05061a', himmelUnten: '#1d2148', nebel: '#191c3a', nebelDichte: 0.006,
+    himmelOben: '#05061a', himmelUnten: '#1d2148', nebel: '#191c3a', nebelDichte: 0.0035,
     sonne: '#fff6e8', sonneStaerke: 2.3, sonneRichtung: [0.6, 0.62, 0.55],
     himmelLicht: '#a9b8ff', bodenLicht: '#5a5560', huelle: 1.05,
     boden: '#a9abb3', bodenRand: '#8d8f99',
     wand: '#f3f5fb', sockel: '#c9d0e2', dach: '#9fb3e8', dachKante: '#ffd27a', akzent: '#ffb35c',
     grading: { lift: [0.03, 0.03, 0.06], waerme: 0.99, saettigung: 1.04, vignette: 0.3 }, bloom: 0.5,
-    sterne: true, erde: true,
+    sterne: true, erde: true, dachForm: 'kuppel', fassade: 'metall',
   },
   starter: { schlaf: [{ item: 'capsuleBed', gx: 0, gz: 0, rot: 0 }] },
   lobbyDeko: [

@@ -42,7 +42,7 @@ export const BUNDLES = {
       moonRock: { parts: [{ src: 'rock_crystalsLargeA', kit: 'space', recolor: GREY, scale: 0.45 }] },
       rocketToy: { parts: [{ src: 'rocket_finsA', kit: 'space', scale: 0.22 }, { src: 'rocket_fuelA', kit: 'space', stack: true, scale: 0.22 }, { src: 'rocket_topA', kit: 'space', stack: true, scale: 0.22 }] },
       spaceSofa: F('loungeDesignSofa', { recolor: { wood: [0.86, 0.88, 0.93] } }),
-      astroStatue: { parts: [{ src: 'astronautA', kit: 'space' }] },
+      astroStatue: { parts: [{ src: 'astronautA', kit: 'space', scale: 0.55 }] },
     },
   },
   wiese: {

@@ -12,11 +12,12 @@ export default {
   fahrzeug: 'blumenzug',
   physik: { schwerkraft: 1, laufFaktor: 1, huepfen: 0 },
   look: {
-    himmelOben: '#8fcdf2', himmelUnten: '#fff0d8', nebel: '#f6ead8', nebelDichte: 0.012,
+    himmelOben: '#8fcdf2', himmelUnten: '#fff0d8', nebel: '#f3ecdf', nebelDichte: 0.0055,
     sonne: '#ffe8c4', sonneStaerke: 2.1, sonneRichtung: [-0.55, 0.75, 0.62],
     himmelLicht: '#cfe8ff', bodenLicht: '#c9b48a', huelle: 1.25,
     boden: '#9fd77f', bodenRand: '#c3e59a',
     wand: '#fff5ea', sockel: '#f3c6a8', dach: '#f18f8f', dachKante: '#ffd2c2', akzent: '#f6a5b5',
+    dachForm: 'giebel', fassade: 'holz',
     grading: { lift: [0.035, 0.025, 0.04], waerme: 1.04, saettigung: 1.06, vignette: 0.22 }, bloom: 0.32,
   },
   lobbyDeko: [

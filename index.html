@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#ffd9df">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kuschelpfote">
+<title>Hotel Kuschelpfote</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">{ "imports": { "three": "./lib/three.module.min.js", "three/addons/": "./lib/addons/" } }</script>
+<script>window.__errors = []; window.addEventListener('error', (e) => window.__errors.push(String(e.message || e))); window.addEventListener('unhandledrejection', (e) => window.__errors.push('promise: ' + String(e.reason && (e.reason.stack || e.reason.message) || e.reason)));</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="overlay"></div>
+<div id="ui">
+  <div id="hud" class="hidden">
+    <button id="bMenu" class="round" aria-label="Menü">☰</button>
+    <div id="coins" class="pill"><span class="ico">🪙</span><b id="coinN">0</b></div>
+    <div id="stars" class="pill"><span id="starRow"></span><i id="starBar"><i></i></i></div>
+    <div id="worldName" class="pill"></div>
+  </div>
+  <div id="bar" class="hidden">
+    <button id="bFloor" class="big"><span>🏗️</span><small>Etage</small></button>
+    <button id="bTrip" class="big"><span>🧺</span><small>Ausflug</small></button>
+    <button id="bAlbum" class="big"><span>📖</span><small>Album</small></button>
+    <button id="bWorlds" class="big"><span>🌍</span><small>Welten</small></button>
+  </div>
+  <div id="furnish" class="hidden">
+    <div id="fTop">
+      <button id="fUndo" class="big" aria-label="Rückgängig"><span>↩️</span><small>Zurück</small></button>
+      <button id="fWall" class="big" aria-label="Tapete"><span>🖼️</span><small>Tapete</small></button>
+      <div id="fTitle" class="pill"></div>
+      <button id="fDone" class="big ok" aria-label="Fertig"><span>✔️</span><small>Fertig</small></button>
+    </div>
+    <div id="fSel" class="hidden">
+      <button id="sRot" class="big"><span>🔄</span><small>Drehen</small></button>
+      <button id="sCol" class="big"><span>🎨</span><small>Farbe</small></button>
+      <button id="sDel" class="big"><span>🗑️</span><small>Weg</small></button>
+      <div id="palette" class="hidden"></div>
+    </div>
+    <div id="catalog">
+      <div id="cTabs"></div>
+      <div id="cList"></div>
+    </div>
+  </div>
+  <div id="trip" class="hidden"><div id="tripTime"><i></i></div><div id="tripCount" class="pill">⭐ 0</div><div id="tripHint"></div></div>
+  <div id="toasts"></div>
+  <div id="modal" class="hidden"><div class="card"></div></div>
+  <div id="tut" class="hidden"></div>
+  <div id="start" class="hidden"></div>
+  <div id="loading"><div class="paw">🐾</div><div>Hotel Kuschelpfote</div><div id="loadBar"><i></i></div></div>
+</div>
+<!-- n42-modulepreload -->
+<link rel="modulepreload" href="lib/three.core.min.js">
+<link rel="modulepreload" href="lib/three.module.min.js">
+<link rel="modulepreload" href="lib/addons/libs/meshopt_decoder.module.js">
+<link rel="modulepreload" href="lib/addons/loaders/GLTFLoader.js">
+<link rel="modulepreload" href="lib/addons/utils/BufferGeometryUtils.js">
+<link rel="modulepreload" href="lib/addons/utils/SkeletonUtils.js">
+<link rel="modulepreload" href="src/audio/sound.js">
+<link rel="modulepreload" href="src/build.js">
+<link rel="modulepreload" href="src/config.js">
+<link rel="modulepreload" href="src/core/autoplay.js">
+<link rel="modulepreload" href="src/core/catalog.js">
+<link rel="modulepreload" href="src/core/hotel.js">
+<link rel="modulepreload" href="src/core/layout.js">
+<link rel="modulepreload" href="src/core/path.js">
+<link rel="modulepreload" href="src/core/save.js">
+<link rel="modulepreload" href="src/core/sim.js">
+<link rel="modulepreload" href="src/core/sizes.js">
+<link rel="modulepreload" href="src/game/camera.js">
+<link rel="modulepreload" href="src/game/furnish.js">
+<link rel="modulepreload" href="src/game/input.js">
+<link rel="modulepreload" href="src/game/trip.js">
+<link rel="modulepreload" href="src/game/tutorial.js">
+<link rel="modulepreload" href="src/gfx/assets.js">
+<link rel="modulepreload" href="src/gfx/atlas.js">
+<link rel="modulepreload" href="src/gfx/batch.js">
+<link rel="modulepreload" href="src/gfx/fx.js">
+<link rel="modulepreload" href="src/gfx/geo.js">
+<link rel="modulepreload" href="src/gfx/hotel.js">
+<link rel="modulepreload" href="src/gfx/pets.js">
+<link rel="modulepreload" href="src/gfx/renderer.js">
+<link rel="modulepreload" href="src/main.js">
+<link rel="modulepreload" href="src/ui/overlay.js">
+<link rel="modulepreload" href="src/ui/screens.js">
+<link rel="modulepreload" href="src/worlds/blumenwiese.js">
+<link rel="modulepreload" href="src/worlds/index.js">
+<link rel="modulepreload" href="src/worlds/mond.js">
+<!-- /n42-modulepreload -->
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

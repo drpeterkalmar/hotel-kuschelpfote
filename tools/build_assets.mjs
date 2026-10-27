@@ -109,7 +109,7 @@ async function buildBundle(name, bundle) {
   const scene = doc.createScene(name); const meta = {};
   const mat = doc.createMaterial('vc').setBaseColorFactor([1, 1, 1, 1]).setRoughnessFactor(1).setMetallicFactor(0);
   for (const [id, def] of Object.entries(bundle.items)) {
-    const g = await buildItem(def, path.join(SRC, bundle.kit));
+    const g = await buildItem(bundle.recolor ? { ...def, recolor: { ...bundle.recolor, ...(def.recolor || {}) } } : def, path.join(SRC, bundle.kit));
     const nv = g.pos.length / 3;
     const col = new Uint8Array(nv * 4), mt = new Uint8Array(nv * 2);
     for (let i = 0; i < nv; i++) {

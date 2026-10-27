@@ -50,7 +50,7 @@ export class Sim {
     const h = this.hotel;
     if (!canBuildFloor(h)) return { ok: false, why: 'sterne' };
     if (!this.spend(floorPrice(h))) return { ok: false, why: 'geld' };
-    h.floors.push({ rooms: [{ type: null, furniture: [], wall: 0 }, { type: null, furniture: [], wall: 0 }] });
+    h.floors.push({ rooms: [{ type: null, furniture: [], wall: null }, { type: null, furniture: [], wall: null }] });
     this.rebuildGraph();
     this.emit('floor', { floor: h.floors.length });
     return { ok: true };

@@ -1,0 +1,28 @@
+<!doctype html><html><body style="margin:0;background:transparent">
+<script type="importmap">{ "imports": { "three": "../lib/three.module.min.js", "three/addons/": "../lib/addons/" } }</script>
+<script type="module">
+// Tier-Bilder fürs Album/Startbildschirm und App-Icons rendern (tests/make_thumbs.py speichert sie)
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.NeutralToneMapping;
+const L = new GLTFLoader(); L.setMeshoptDecoder(MeshoptDecoder);
+window.render = async (sp, size, bg) => {
+  r.setSize(size, size, false);
+  const sc = new THREE.Scene();
+  if (bg) { sc.background = new THREE.Color(bg); }
+  sc.add(new THREE.HemisphereLight(0xfff4ea, 0xd9b8c8, 2.2));
+  const d = new THREE.DirectionalLight(0xffffff, 2.2); d.position.set(2, 4, 5); sc.add(d);
+  const g = await new Promise((res) => L.load(`../assets/pets/${sp}.glb`, res));
+  const o = g.scene; const mixer = new THREE.AnimationMixer(o); const c = g.animations.find((a) => a.name === 'idle'); if (c) { mixer.clipAction(c).play(); mixer.update(0.3); }
+  o.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(o), ctr = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
+  o.position.sub(ctr); o.rotation.y = -0.45; sc.add(o);
+  const cam = new THREE.PerspectiveCamera(28, 1, 0.1, 100); const m = Math.max(sz.x, sz.y, sz.z) * (bg ? 1.55 : 1.18);
+  cam.position.set(0, m * 0.55, m / Math.tan(0.244) * 0.5); cam.lookAt(0, -sz.y * 0.04, 0);
+  r.render(sc, cam);
+  return r.domElement.toDataURL('image/png');
+};
+window.ready = true;
+</script></body></html>

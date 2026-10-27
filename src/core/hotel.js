@@ -10,7 +10,7 @@ export function newHotel(world) {
   return h;
 }
 function makeRoom(h, type, world) {
-  const r = { type, furniture: [], wall: 0 };
+  const r = { type, furniture: [], wall: null };
   if (type) for (const s of (world?.starter?.[type] || ROOM_STARTER[type])) r.furniture.push({ uid: h.uid++, item: s.item, gx: s.gx, gz: s.gz, rot: s.rot, color: s.color ?? null });
   return r;
 }
