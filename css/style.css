@@ -159,8 +159,10 @@ button.big .price { font-size: 11px; font-weight: 900; color: #b07a20; }
   #cList { flex-wrap: wrap; overflow-y: auto; overflow-x: hidden; align-content: flex-start; touch-action: pan-y; flex: 1; }
   .item { width: 78px; height: 88px; touch-action: pan-y; }
   #cList { gap: 6px; }
-  #fSel { left: calc(50% - 118px); bottom: calc(12px + var(--safeB)); }
-  #tut { top: auto; bottom: calc(10px + var(--safeB)); left: calc(50% - 40px); }
+  #fSel { left: calc(50% - 126px); top: calc(78px + var(--safeT)); bottom: auto; align-items: flex-start; }
+  #palette { bottom: auto; top: 72px; }
+  #tut { top: auto; bottom: calc(8px + var(--safeB)); left: calc(8px + var(--safeL)); transform: none; width: min(400px, 46vw); padding: 8px 10px; }
+  #tut .pic { font-size: 30px; min-width: 48px; } #tut .txt { font-size: 14px; }
   #modal .card { max-height: calc(100% - 6px); padding: 12px; }
   #modal .opt { min-height: 104px; width: 112px; }
 }

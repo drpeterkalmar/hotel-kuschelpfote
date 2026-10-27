@@ -26,14 +26,16 @@ export class CamCtl {
   hotelLimits() {
     const p = this.portrait();
     const fitW = this.fitDist(HALF_W * 2 + (p ? 1.6 : 6), 1, this.W, this.H);
-    const minD = p ? fitW * 0.42 : 9, maxD = Math.max(fitW * 1.15, p ? 34 : 30);
+    const minD = p ? fitW * 0.42 : 9, maxD = Math.max(fitW * 1.15, p ? 34 : 44);
     return { minD, maxD, fitW };
   }
   resetHotel(topY, focusY = null) {
     this.topY = topY;
     const { fitW } = this.hotelLimits();
     const p = this.portrait();
-    this.h.tdist = p ? fitW : Math.min(26, fitW * 1.0);
+    // quer: ganze Höhe bis übers Dach zeigen (höchstens ~4 Etagen), hoch: ganze Breite
+    const fitH = this.fitDist(1, Math.min(topY + 3.2, 16), this.W, this.H * 0.86);
+    this.h.tdist = p ? fitW : Math.min(this.hotelLimits().maxD, Math.max(fitW, fitH));
     this.h.tx = 0; this.h.ty = focusY ?? Math.min(topY * 0.42, 4.5);
   }
   panBy(dxPx, dyPx) {
@@ -66,6 +68,21 @@ export class CamCtl {
     this.free = free;
     this.f = { c: c.clone() };
   }
+  // Abstand numerisch einpassen: alle Ecken des Zimmers (Boden + Wandoberkante) im freien Bereich
+  fitRoom(tl, dir, fr) {
+    const c = this.f.c, hw = ROOM_W / 2 + 0.25, hd = ROOM_D / 2 + 0.2;
+    const pts = [];
+    for (const x of [-hw, hw]) for (const z of [-hd, hd]) for (const y of [0, 2.9]) pts.push(new THREE.Vector3(c.x + x, c.y + y, c.z + z));
+    const cam = this.cam.clone(); cam.clearViewOffset(); cam.aspect = this.W / this.H; cam.updateProjectionMatrix();
+    const fits = (d) => {
+      cam.position.copy(tl).addScaledVector(dir, d); cam.lookAt(tl); cam.updateMatrixWorld();
+      for (const p of pts) { const v = p.clone().project(cam); if (v.z > 1 || Math.abs(v.x) * this.W / 2 > fr.w / 2 * 0.96 || Math.abs(v.y) * this.H / 2 > fr.h / 2 * 0.96) return false; }
+      return true;
+    };
+    let lo = 3, hi = 80;
+    for (let i = 0; i < 24; i++) { const m = (lo + hi) / 2; if (fits(m)) hi = m; else lo = m; }
+    return hi;
+  }
   focusHotel() { this.mode = 'hotel'; this.cam.clearViewOffset(); }
   update(dt) {
     const k = 7;
@@ -77,9 +94,10 @@ export class CamCtl {
     } else if (this.mode === 'furnish' && this.f) {
       const fr = this.free;
       const pitch = 0.78, yaw = 0;   // ~45° von oben
-      const dist = this.fitDist(ROOM_W + 0.7, ROOM_D * Math.sin(pitch) + 2.6 * Math.cos(pitch), fr.w, fr.h) * 1.0;
       const dir = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
       const tl = this.f.c.clone().add(new THREE.Vector3(0, 1.05, 0.15));
+      if (!this.f.dist || this.f.key !== fr.w + 'x' + fr.h + 'x' + this.W) { this.f.dist = this.fitRoom(tl, dir, fr); this.f.key = fr.w + 'x' + fr.h + 'x' + this.W; }
+      const dist = this.f.dist;
       const tp = tl.clone().addScaledVector(dir, dist);
       this.pos.lerp(tp, 1 - Math.exp(-6 * dt)); this.look.lerp(tl, 1 - Math.exp(-6 * dt));
       // Bildmitte in die Mitte des freien Bereichs schieben

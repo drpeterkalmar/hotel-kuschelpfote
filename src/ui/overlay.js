@@ -29,11 +29,16 @@ export class Overlay {
         e.addEventListener('pointercancel', () => { e._down = null; e._drag = null; });
       }
     }
-    if (e._html !== html) { e.innerHTML = html; e._html = html; }
+    if (e._html !== html) { e.innerHTML = html; e._html = html; e._w = 0; e._h = 0; }
     e._seen = true; e.className = cls;
     return e;
   }
-  place(e, p, dy = 0) { e.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(p.y + dy)}px) translate(-50%, -100%)`; e.style.display = p.vis ? '' : 'none'; }
+  place(e, p, dy = 0) {
+    // am Rand ins Bild schieben (Tippziel bleibt ganz sichtbar)
+    const hw = (e._w || (e._w = e.offsetWidth || 60)) / 2, hh = e._h || (e._h = e.offsetHeight || 50);
+    const x = Math.max(hw + 4, Math.min(innerWidth - hw - 4, p.x)), y = Math.max(hh + 4, Math.min(innerHeight - 4, p.y + dy));
+    e.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px) translate(-50%, -100%)`; e.style.display = p.vis ? '' : 'none';
+  }
   update() {
     const app = this.app, sim = app.sim; if (!sim) return;
     for (const e of this.els.values()) e._seen = false;
@@ -56,7 +61,7 @@ export class Overlay {
       const free = new Set(sim.freeGuestRooms().map((r) => r.id));
       for (const r of allRooms(sim.hotel)) {
         const c = cellCenter(r.floor, r.side, 2.5, 2);
-        const p = this.proj(c.x, c.y + (sel ? 2.3 : 2.35), c.z + 1.4);
+        const p = this.proj(c.x, c.y + 1.75, c.z + 1.4);
         if (!r.room.type) {
           this.place(this.el('r' + r.id, 'badge build', '<b>＋</b> Zimmer', () => app.screens.roomTypePicker(r.id)), p);
         } else if (sel && r.room.type === 'schlaf') {

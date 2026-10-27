@@ -68,7 +68,10 @@ export class Screens {
   modal(html, onClose) {
     const m = $('modal'); m.classList.remove('hidden'); const c = m.querySelector('.card'); c.innerHTML = html;
     const close = () => { m.classList.add('hidden'); c.innerHTML = ''; onClose && onClose(); };
-    m.onclick = (e) => { if (e.target === m) close(); };
+    const t0 = performance.now();   // Geister-Klick des öffnenden Fingertipps nicht als Daneben-Tippen werten
+    m.onclick = (e) => { if (e.target === m && performance.now() - t0 > 400) close(); };
+    if (!m._guard) { m._guard = true; m.addEventListener('click', (e) => { if (performance.now() - m._t0 < 380) { e.stopPropagation(); e.preventDefault(); } }, true); }
+    m._t0 = t0;
     c.querySelectorAll('.close').forEach((b) => (b.onclick = () => { this.tap(); close(); }));
     this.app.sound.sfx('open', { vol: 0.5 });
     return { card: c, close };
