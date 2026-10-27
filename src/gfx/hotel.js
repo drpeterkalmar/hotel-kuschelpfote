@@ -190,7 +190,7 @@ export class HotelView {
       // Schild
       b.box(-1.7, 0.3, 1.2, 1.7, 2.2, 1.35, '#ffffff', T.PLAIN, 'pznx');
       b.quad([-1.6, 0.4, 1.36], [3.2, 0, 0], [0, 1.7, 0], '#ffffff', T.SIGN, 1, 1);
-      const m = new THREE.Mesh(b.build(), this.mat); m.castShadow = true; m.receiveShadow = true; g.add(m);
+      const m = new THREE.Mesh(b.build(), this.mat); m.castShadow = false; m.receiveShadow = true; g.add(m);
       const dome = new THREE.Mesh(new THREE.SphereGeometry(4.6, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), this.glassMat);
       dome.scale.set(1.25, 0.75, 0.55); dome.position.set(0, 0.3, -0.6); dome.renderOrder = 5; g.add(dome);
       const ring = new THREE.Mesh(new THREE.TorusGeometry(4.6, 0.12, 8, 48), new THREE.MeshLambertMaterial({ color: L.dachKante }));
@@ -221,7 +221,7 @@ export class HotelView {
     // Schild auf der Dachfläche
     b.box(-1.75, 0.45, 1.75, 1.75, 2.35, 1.95, '#ffffff', T.PLAIN, 'pzpxnxpy');
     b.quad([-1.65, 0.55, 1.96], [3.3, 0, 0], [0, 1.7, 0], '#ffffff', T.SIGN, 1, 1);
-    const m = new THREE.Mesh(b.build(), this.mat); m.castShadow = true; m.receiveShadow = true; g.add(m);
+    const m = new THREE.Mesh(b.build(), this.mat); m.castShadow = false; m.receiveShadow = true; g.add(m);
     return g;
   }
 }

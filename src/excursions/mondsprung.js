@@ -32,7 +32,7 @@ export async function create(ctx) {
   const props = new PropLayer(scene); props.addParts('mond', bundles.mond);
   const r = seeded(9), list = [];
   for (let i = 0; i < 60; i++) { const x = -30 + r() * 140, z = -6 - r() * 30; list.push({ model: 'mond/' + ['rocks', 'rocks2', 'rockLarge', 'rockLarge2', 'meteor', 'crystals'][Math.floor(r() * 6)], x, y: moonHeight(x, z, CR) * 0.6, z, rotY: r() * 6, scale: 2 + r() * 2 }); }
-  for (let i = 0; i < 16; i++) { const x = -20 + r() * 120, z = 3 + r() * 6; list.push({ model: 'mond/rocks', x, y: moonHeight(x, z, CR) * 0.6, z, rotY: r() * 6, scale: 1.5 }); }
+  for (let i = 0; i < 70; i++) { const x = -20 + r() * 160, z = (r() < 0.5 ? -1 : 1) * (1.6 + r() * 7); list.push({ model: 'mond/' + ['rocks', 'rocks2', 'crater', 'crystals', 'rockLarge'][Math.floor(r() * 5)], x, y: moonHeight(x, z, CR) * 0.6 - 0.03, z, rotY: r() * 6, scale: 1.2 + r() * 1.4 }); }
   list.push({ model: 'mond/hangar', x: -9, y: 0, z: -5, scale: 2.6, rotY: 0.3 }, { model: 'mond/gate', x: -7, y: 0, z: -2.4, scale: 2.4, rotY: 0.3 }, { model: 'mond/dish', x: -14, y: 0, z: -9, scale: 3, rotY: 0.6 },
     { model: 'mond/rocket', x: 30, y: 0, z: -22, scale: 3.4 }, { model: 'mond/platform', x: 30, y: 0, z: -22, scale: 3.4 });
   props.set(list);
@@ -56,7 +56,10 @@ export async function create(ctx) {
   const stoneGeo = bundles.mond.crystals;
   const stones = new THREE.InstancedMesh(stoneGeo.geo, props.mat, 60); stones.frustumCulled = false; scene.add(stones);
   stones.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(180).fill(1), 3);
-  const dust = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.22, 1), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 1.9, 1.1) }), 120); dust.frustumCulled = false; scene.add(dust);
+  // Sternenstaub: kleine, leuchtende Sterne (drehen sich, Bloom lässt sie glühen)
+  const sh = new THREE.Shape(); for (let a = 0; a < 10; a++) { const r = a % 2 ? 0.12 : 0.3, w = a * Math.PI / 5 + Math.PI / 2; a ? sh.lineTo(Math.cos(w) * r, Math.sin(w) * r) : sh.moveTo(Math.cos(w) * r, Math.sin(w) * r); }
+  const starGeo = new THREE.ExtrudeGeometry(sh, { depth: 0.08, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.03, bevelSegments: 1 }); starGeo.center();
+  const dust = new THREE.InstancedMesh(starGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, 1.9, 0.8) }), 120); dust.frustumCulled = false; scene.add(dust);
   const ir = seeded(4);
   for (let x = 4; x < 150; x += 2.6 + ir() * 2.2) {
     const big = ir() < 0.35;
@@ -111,7 +114,7 @@ export async function create(ctx) {
         if (it.got || Math.abs(it.x - st.x) > 30) continue;
         const bob = Math.sin(t * 2 + it.t) * 0.15;
         if (it.kind === 'stone') { q.setFromEuler(new THREE.Euler(0, t + it.t, 0)); stones.setMatrixAt(si, m4.compose(new THREE.Vector3(it.x, it.y + bob - 0.25, 0), q, new THREE.Vector3(1.6, 1.6, 1.6)).multiply(stoneGeo.local)); stones.setColorAt(si++, new THREE.Color(1, 1, 1)); }
-        else if (di < 120) { const s = 1 + Math.sin(t * 6 + it.t) * 0.25; dust.setMatrixAt(di++, m4.compose(new THREE.Vector3(it.x, it.y + bob, 0), q.identity(), new THREE.Vector3(s, s, s))); }
+        else if (di < 120) { const s = 1.1 + Math.sin(t * 6 + it.t) * 0.2; q.setFromEuler(new THREE.Euler(0, t * 2 + it.t, 0)); dust.setMatrixAt(di++, m4.compose(new THREE.Vector3(it.x, it.y + bob, 0), q, new THREE.Vector3(s, s, s))); }
       }
       stones.count = si; dust.count = di; stones.instanceMatrix.needsUpdate = true; dust.instanceMatrix.needsUpdate = true;
       // Rover fährt mit
@@ -120,7 +123,7 @@ export async function create(ctx) {
       rover.position.set(st.roverX, ry, rz); rover.rotation.y = Math.PI / 2;
       const states = new Map();
       const air = st.air ? Math.min(1, st.airT / 0.4) : 0;
-      states.set('me', { scale: 1.3, x: st.x, y: st.y, z: 0, yaw: st.dir > 0 ? Math.PI / 2 : -Math.PI / 2, anim: st.air ? 'idle' : 'walk', suit: true, tilt: st.air ? -0.15 * air : 0,
+      states.set('me', { scale: 1.25, x: st.x, y: st.y, z: 0, yaw: st.dir > 0 ? Math.PI / 2 - 0.65 : -Math.PI / 2 + 0.65, anim: st.air ? 'idle' : 'walk', suit: true, tilt: st.air ? -0.15 * air : 0,
         sy: 1 - Math.sin(st.sq * Math.PI) * 0.2, sx: 1 + Math.sin(st.sq * Math.PI) * 0.12, roll: st.air ? Math.sin(t * 1.5) * 0.08 : 0 });
       riders.forEach((sp, i) => states.set('r' + i, { x: st.roverX - 0.5 + i * 1.0, y: ry + 1.3 + Math.abs(Math.sin(t * 3 + i)) * 0.15, z: rz, yaw: Math.PI / 2, anim: 'dance', suit: true, scale: 0.85 }));
       pets.update(dt, states);
@@ -128,13 +131,13 @@ export async function create(ctx) {
       sky.stars.material.uniforms.t.value = t; sky.stars.material.uniforms.px.value = ctx.renderer.dpr;
       // Kamera: seitlich, folgt; Hochformat weiter weg, damit der ganze Bogen ins Bild passt
       const portrait = innerHeight > innerWidth;
-      const dist = portrait ? 17 : 13.5;
+      const dist = portrait ? 22 : 15;
       const gy0 = H(st.x);
       // Kamera folgt der Höhe nur wenig → man sieht den Gast hoch hinaus fliegen
-      const ty = gy0 + (portrait ? 4.6 : 3.2) + Math.max(0, st.y - gy0) * 0.3;
+      const ty = gy0 + (portrait ? 5.6 : 3.6) + Math.max(0, st.y - gy0) * 0.3;
       const tx = st.x + (portrait ? 0.6 : 3.0) * st.dir;
       cam.position.lerp(new THREE.Vector3(tx, ty + 0.8, dist), 1 - Math.exp(-3 * dt));
-      cam.lookAt(cam.position.x, cam.position.y - (portrait ? 1.6 : 1.2), 0);
+      cam.lookAt(cam.position.x, cam.position.y - (portrait ? 3.0 : 2.2), 0);
       sky.earth.position.set(cam.position.x - (portrait ? 6 : 26), portrait ? 34 : 26, -110);
       glowFollow();
       lights.setFocus(0); lights.sun.target.position.set(st.x, 0, 0); lights.sun.position.set(st.x + 30, 40, 30);

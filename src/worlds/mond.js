@@ -19,7 +19,7 @@ export default {
     himmelLicht: '#a9b8ff', bodenLicht: '#5a5560', huelle: 1.05,
     boden: '#a9abb3', bodenRand: '#8d8f99',
     wand: '#f3f5fb', sockel: '#c9d0e2', dach: '#9fb3e8', dachKante: '#ffd27a', akzent: '#ffb35c',
-    grading: { lift: [0.03, 0.03, 0.06], waerme: 0.99, saettigung: 1.04, vignette: 0.3 }, bloom: 0.5,
+    grading: { lift: [0.015, 0.015, 0.035], waerme: 1.0, saettigung: 1.1, vignette: 0.28 }, bloom: 0.38,
     sterne: true, erde: true, dachForm: 'kuppel', fassade: 'metall',
   },
   starter: { schlaf: [{ item: 'capsuleBed', gx: 0, gz: 0, rot: 0 }] },

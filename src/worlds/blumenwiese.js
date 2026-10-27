@@ -18,7 +18,7 @@ export default {
     boden: '#9fd77f', bodenRand: '#c3e59a',
     wand: '#fff5ea', sockel: '#f3c6a8', dach: '#f18f8f', dachKante: '#ffd2c2', akzent: '#f6a5b5',
     dachForm: 'giebel', fassade: 'holz',
-    grading: { lift: [0.035, 0.025, 0.04], waerme: 1.04, saettigung: 1.06, vignette: 0.22 }, bloom: 0.32,
+    grading: { lift: [0.018, 0.012, 0.022], waerme: 1.035, saettigung: 1.13, vignette: 0.2 }, bloom: 0.22,
   },
   lobbyDeko: [
     { item: 'pottedPlant', x: -5.1, z: -1.5 }, { item: 'loungeSofa', x: -3.2, z: -1.55 }, { item: 'flowerPot', x: -1.6, z: -1.6 },

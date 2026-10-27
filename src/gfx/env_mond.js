@@ -51,7 +51,7 @@ export function makeStarsAndEarth(group, look) {
 }
 export function moonGround(look, radius = 160) {
   const cA = new THREE.Color(look.boden), cB = new THREE.Color(look.bodenRand), tmp = new THREE.Color();
-  return makeGround(radius, 56, (x, z) => { const n = noise2(x * 0.15, z * 0.15) * 0.7 + noise2(x * 0.7, z * 0.7) * 0.3; tmp.copy(cA).lerp(cB, n); const h = moonHeight(x, z); tmp.multiplyScalar(1 + h * 0.08); return tmp.clone(); }, moonHeight);
+  return makeGround(radius, 56, (x, z) => { const n = noise2(x * 0.15, z * 0.15) * 0.7 + noise2(x * 0.7, z * 0.7) * 0.3; tmp.copy(cA).lerp(cB, n * 1.3); const h = moonHeight(x, z); tmp.multiplyScalar(Math.max(0.55, 1 + h * 0.22) * (0.88 + 0.24 * noise2(x * 1.7, z * 1.7))); return tmp.clone(); }, moonHeight);
 }
 
 export function build(ctx) {
@@ -71,6 +71,8 @@ export function build(ctx) {
     const kd = kinds[Math.floor(rnd() * kinds.length)];
     list.push({ model: 'mond/' + kd, x, y: moonHeight(x, z) - 0.05, z, rotY: rnd() * 6, scale: (kd.startsWith('crater') ? 4 : 2.2) * (0.7 + rnd() * 0.8) });
   }
+  // kleine Steine und flache Krater auch vorn (verdecken nichts)
+  for (let i = 0; i < 26; i++) { const x = (rnd() - 0.5) * 30, z = 6.5 + rnd() * 9; if (Math.abs(x - LOBBY.stop.x) < 3 && z < 9) continue; list.push({ model: 'mond/' + (rnd() < 0.4 ? 'crater' : rnd() < 0.5 ? 'rocks' : 'rocks2'), x, y: -0.04, z, rotY: rnd() * 6, scale: 1.4 + rnd() * 1.6 }); }
   // Raumstation rund ums Hotel
   const station = [['hangarGlass', -15, -6, 2.2, 0.3], ['hangar', 15.5, -5.5, 2.4, -0.4], ['hangarRound', -22, -14, 2.4, 0.6], ['dish', 11, -9, 3.2, -0.6], ['dishSmall', -11.5, -2.5, 2.4, 0.8],
     ['rocket', 20, -16, 3.2, 0], ['platform', 20, -16, 3.2, 0], ['machine', 9.4, -4.2, 2.2, 0.2], ['generator', -9.6, -4.6, 2.2, 0], ['structure', 23, -4, 2.4, 0.3], ['barrels', -10, 5.2, 2.2, 0.4],

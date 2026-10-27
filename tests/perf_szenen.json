@@ -1,0 +1,16 @@
+{
+  "bereit": "window.__app && window.__app.ready && window.__app.mode === 'hotel'",
+  "info": "() => { const i = __game.app.renderer.r.info; return { calls: i.render.calls, tris: i.render.triangles, tex: i.memory.textures }; }",
+  "ladeQuery": "?nosw&slot=0&name=Messung&tutorial=0",
+  "zusatz": "({ gaeste: __game.sim().guests.length, etagen: __game.sim().hotel.floors.length, dpr: __game.app.renderer.dpr, gl: (() => { const gl = document.createElement('canvas').getContext('webgl2'); const e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : '?'; })() })",
+  "szenen": [
+    { "name": "hotel_wiese", "query": "?nosw&slot=0&name=M&tutorial=0&alles=1",
+      "schritte": ["__game.autoplay(true)", "__game.step(300)", "__game.closeModal()", {"warte": 2}] },
+    { "name": "hotel_mond", "query": "?nosw&slot=0&name=M&tutorial=0&alles=1&welt=mond",
+      "schritte": ["__game.autoplay(true)", "__game.step(300)", "__game.closeModal()", {"warte": 2}] },
+    { "name": "einrichten", "query": "?nosw&slot=0&name=M&tutorial=0&alles=1",
+      "schritte": ["__game.autoplay(true)", "__game.step(200)", "__game.autoplay(false)", "__game.closeModal()", "__game.openRoom('1A')", {"warte": 2}] },
+    { "name": "mondsprung", "query": "?nosw&slot=0&name=M&tutorial=0&alles=1&welt=mond",
+      "schritte": ["__game.sim().buildAusflug()", "__game.startTrip()", {"bis": "window.__app.mode === 'trip'", "max": 30}, {"warte": 1.5}, "__game.trip().game.jump()"] }
+  ]
+}

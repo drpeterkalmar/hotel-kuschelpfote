@@ -36,7 +36,8 @@ export class Overlay {
   place(e, p, dy = 0) {
     // am Rand ins Bild schieben (Tippziel bleibt ganz sichtbar)
     const hw = (e._w || (e._w = e.offsetWidth || 60)) / 2, hh = e._h || (e._h = e.offsetHeight || 50);
-    const x = Math.max(hw + 4, Math.min(innerWidth - hw - 4, p.x)), y = Math.max(hh + 4, Math.min(innerHeight - 4, p.y + dy));
+    const rightBar = innerWidth > innerHeight && innerHeight < 560 ? 84 : 0;
+    const x = Math.max(hw + 4, Math.min(innerWidth - hw - 4 - rightBar, p.x)), y = Math.max(hh + 4, Math.min(innerHeight - 4, p.y + dy));
     e.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px) translate(-50%, -100%)`; e.style.display = p.vis ? '' : 'none';
   }
   update() {
@@ -84,7 +85,7 @@ export class Overlay {
       // Ausflugsort
       const a = app.world.ausflug;
       if (a) {
-        const p = this.proj(a.punkt.x, 2.6, a.punkt.z);
+        const p = this.proj(a.punkt.x, 2.6, a.punkt.z); if (Math.abs(v3.x) > 0.95) p.vis = false;   // Ort außerhalb des Bilds → keine Marke am Rand
         const html = sim.hotel.ausflug ? `${a.icon} <span>Mitmachen!</span>` : `${a.icon} <span>＋</span> <span style="color:#b07a20">🪙${a.preis}</span>`;
         this.place(this.el('trip', 'badge ' + (sim.hotel.ausflug ? 'go' : 'build'), html, () => app.screens.tripButton()), p);
       }

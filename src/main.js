@@ -6,12 +6,15 @@ import { Renderer } from './gfx/renderer.js';
 import { loadBundle, preloadPets } from './gfx/assets.js';
 import { HotelView } from './gfx/hotel.js';
 import { PropLayer } from './gfx/batch.js';
+import { BlobLayer } from './gfx/blobs.js';
 import { PetLayer } from './gfx/pets.js';
 import { FX, P } from './gfx/fx.js';
 import { CamCtl } from './game/camera.js';
 import { Sim } from './core/sim.js';
 import { AutoPlayer } from './core/autoplay.js';
 import { ITEM, FS, CELL, footprint, itemHeight } from './core/catalog.js';
+import { SIZES } from './core/sizes.js';
+const furnSize = (model) => SIZES['moebel/' + model] || [0.5, 0.5, 0.5];
 import { allRooms, parseRoomId, getRoom } from './core/hotel.js';
 import { FH, cellCenter, LOBBY } from './core/layout.js';
 import { furnitureCenter } from './core/path.js';
@@ -91,7 +94,8 @@ export async function enterWorld(id) {
   app.env = envMod.build({ scene: root, look: world.look, bundles: app.bundles, fx: app.fx, world, renderer: app.renderer });
   app.scene.fog = root.fog || app.scene.fog; if (root.fog) app.scene.fog = root.fog;
   app.hotelView = new HotelView(root, world);
-  app.furn = new PropLayer(root); app.furn.addParts('moebel', app.bundles.moebel);
+  app.furn = new PropLayer(root, { cast: false }); app.furn.addParts('moebel', app.bundles.moebel);
+  app.furnBlobs = new BlobLayer(root, 300); app.petBlobs = new BlobLayer(root, 40);
   app.ghostLayer = new PropLayer(root, { cast: false }); app.ghostLayer.addParts('moebel', app.bundles.moebel);
   app.pets = new PetLayer(root);
   setLoad(0.5);
@@ -263,10 +267,20 @@ function frame(rdt) {
   let rest = dt; while (rest > 1e-6) { const s = Math.min(rest, 0.05); app.sim.step(s); if (autoplayer) autoplayer.tick(s); rest -= s; }
   app.sim.playSeconds = (app.slot.playSeconds += rdt);
   app.furnish.update(rdt);
-  if (app.dirtyFurniture) { app.furn.set(furnitureList(app.mode === 'furnish' ? app.furnish.floor : 99)); app.dirtyFurniture = false; }
+  if (app.dirtyFurniture) {
+    const fl = furnitureList(app.mode === 'furnish' ? app.furnish.floor : 99);
+    app.furn.set(fl);
+    app.furnBlobs.set(fl.filter((f) => !/^moebel\/rug/.test(f.model)).map((f) => { const sz = app.bundles.moebel[f.model.slice(7)]; const it = f.uid ? null : null; void it;
+      const s = furnSize(f.model.slice(7)); const r = Math.abs(Math.round(f.rotY / (Math.PI / 2))) % 2; return { x: f.x, y: f.y, z: f.z, w: (r ? s[2] : s[0]) * FS * 1.25 + 0.25, d: (r ? s[0] : s[2]) * FS * 1.25 + 0.25 }; }));
+    app.dirtyFurniture = false;
+  }
   const states = guestStates(rdt);
   if (app.mode === 'furnish') for (const [id, s] of states) { const g = app.sim.guests.find((x) => x.id === id); if (g && g.pos.y > app.furnish.floor * FH + 1.5) s.visible = false; }
   app.pets.update(rdt * (app.timeScale ?? 1), states);
+  const pb = []; for (const [id, st] of states) { if (st.visible === false) continue; const g = id === 'host' ? null : app.sim.guests.find((x) => x.id === id);
+    const gy = g ? (g.onto ? g.pos.y : Math.floor((g.pos.y + 0.5) / FH) * FH) : 0; const lift = Math.max(0, st.y - gy); const k = 1 / (1 + lift * 0.6);
+    pb.push({ x: st.x, y: gy, z: st.z, w: 1.25 * k, d: 1.1 * k }); }
+  app.petBlobs.set(pb);
   liftPads();
   app.hotelView.update(rdt);
   app.env.update(rdt, app.t, app.sim.vehicle);

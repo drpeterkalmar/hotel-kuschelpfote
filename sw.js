@@ -1,5 +1,5 @@
 // Service-Worker: offline spielbar, Cache-Busting über Inhalts-Hash (tools/update_sw.py)
-const VERSION = '4763f9a627';
+const VERSION = '51db3790e0';
 const CACHE = 'kuschelpfote-' + VERSION;
 const ASSETS = [
   './',
@@ -76,6 +76,7 @@ const ASSETS = [
   'src/gfx/assets.js',
   'src/gfx/atlas.js',
   'src/gfx/batch.js',
+  'src/gfx/blobs.js',
   'src/gfx/env_common.js',
   'src/gfx/env_mond.js',
   'src/gfx/env_wiese.js',
