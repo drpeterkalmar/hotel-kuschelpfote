@@ -55,3 +55,30 @@ export function testWaitingGuestsStayHappy() {
   ok(sim.stuckGuests().length === 0, 'niemand hängt');
   eq(slot.coins, CFG.startGeld, 'keine Strafe');
 }
+
+// Peter 28.10.: Tutorial verlangte ein Möbel, aber kein Geld → Geschenk + Sparschwein
+export function testGeschenkErstesMoebelGratis() {
+  const slot = newSlot('A', 'bunny', WORLD_LIST); slot.coins = 0;
+  const sim = new Sim(slot, WORLDS.blumenwiese, { rng: rngFrom(5) });
+  sim.geschenk = 1;
+  const sp = findSpot(getRoom(sim.hotel, '1A'), 0, 'cabinetBed');
+  ok(sp && sim.buy('1A', 'cabinetBed', sp.gx, sp.gz, sp.rot), 'Geschenk-Kauf ohne Geld klappt');
+  eq(slot.coins, 0, 'Geschenk kostet nichts'); eq(sim.geschenk, 0, 'Geschenk verbraucht');
+  const sp2 = findSpot(getRoom(sim.hotel, '1A'), 0, 'pottedPlant');
+  ok(sim.buy('1A', 'pottedPlant', sp2.gx, sp2.gz, sp2.rot) === null, 'danach ohne Geld wieder kein Kauf');
+}
+export function testSparschweinNiePleite() {
+  const slot = newSlot('A', 'bunny', WORLD_LIST); slot.coins = 2;
+  const sim = new Sim(slot, WORLDS.blumenwiese, { rng: rngFrom(9) });
+  let gifts = 0; sim.on('sparschwein', () => gifts++);
+  for (let t = 0; t < BAL.sparschweinNach + 0.5; t += 0.1) sim.stepSparschwein(0.1);
+  eq(gifts, 1, 'Sparschwein springt nach kurzer Zeit ein'); eq(slot.coins, 2 + BAL.sparschwein, 'Münzen gutgeschrieben');
+  slot.coins = 0;
+  for (let t = 0; t < BAL.sparschweinPause - 5; t += 0.1) sim.stepSparschwein(0.1);
+  eq(gifts, 1, 'nicht öfter als einmal je Pause');
+  for (let t = 0; t < 10; t += 0.1) sim.stepSparschwein(0.1);
+  eq(gifts, 2, 'nach der Pause wieder');
+  slot.coins = 100; const g0 = gifts;
+  for (let t = 0; t < 200; t += 0.1) sim.stepSparschwein(0.1);
+  eq(gifts, g0, 'mit genug Geld kein Geschenk');
+}

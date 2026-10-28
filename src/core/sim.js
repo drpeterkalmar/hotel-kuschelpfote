@@ -36,6 +36,8 @@ export class Sim {
     this.listeners = {};
     this.stats = { arrived: 0, departed: 0, happy: 0, stuck: 0, maxStuckT: 0 };
     this.paused = false;
+    this.geschenk = 0;             // so viele nächste Möbel-Käufe sind gratis (Tutorial)
+    this.sparT = 0; this.sparCool = 0;
     this.rebuildGraph();
   }
   on(ev, fn) { (this.listeners[ev] ||= []).push(fn); }
@@ -75,7 +77,9 @@ export class Sim {
   buy(id, itemId, gx, gz, rot, color = null) {
     const r = getRoom(this.hotel, id); const { side } = parseRoomId(id); const it = ITEM[itemId];
     if (!r || !it || !canPlace(r, side, itemId, gx, gz, rot)) return null;
-    if (!this.spend(it.price)) return null;
+    const gift = this.geschenk > 0;
+    if (!gift && !this.spend(it.price)) return null;
+    if (gift) { this.geschenk--; this.emit('geschenk', { item: itemId }); }
     const fu = placeItem(this.hotel, r, side, itemId, gx, gz, rot, color);
     this.furnitureChanged(id); this.emit('placed', { id, fu });
     return fu;
@@ -226,6 +230,7 @@ export class Sim {
   step(dt) {
     if (this.paused) return;
     this.t += dt;
+    this.stepSparschwein(dt);
     this.stepVehicle(dt);
     this.nextArrival -= dt;
     if (this.nextArrival <= 0 && this.vehicle.state === 'away') {
@@ -233,6 +238,15 @@ export class Sim {
       this.nextArrival = BAL.anreiseAbstand[0] + this.rng() * (BAL.anreiseAbstand[1] - BAL.anreiseAbstand[0]);
     }
     for (const g of [...this.guests]) this.stepGuest(g, dt);
+  }
+  // Nie pleite: unter dem Bett-Preis hilft das Sparschwein (kein Verlieren, kein Festhängen)
+  stepSparschwein(dt) {
+    this.sparCool = Math.max(0, this.sparCool - dt);
+    if (CFG.alles || this.slot.coins >= BAL.sparschweinUnter || this.sparCool > 0) { this.sparT = 0; return; }
+    this.sparT += dt;
+    if (this.sparT < BAL.sparschweinNach) return;
+    this.sparT = 0; this.sparCool = BAL.sparschweinPause;
+    this.earn(BAL.sparschwein); this.emit('sparschwein', { n: BAL.sparschwein });
   }
   callVehicle(withGuest) {
     if (this.vehicle.state !== 'away') return;

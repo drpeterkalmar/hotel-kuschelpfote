@@ -97,13 +97,23 @@ export class Furnish {
     items.sort((a, b) => a.stars - b.stars || a.price - b.price);
     const L = $('cList');
     L.innerHTML = items.map((it) => {
-      const locked = !itemAvailable(h, it.id, app.world.id), poor = !CFG.alles && app.slot.coins < it.price;
+      const locked = !itemAvailable(h, it.id, app.world.id), gift = app.sim.geschenk > 0, poor = !CFG.alles && !gift && app.slot.coins < it.price;
       const w = it.tags.some((t) => want.has(t));
-      return `<div class="item ${locked ? 'locked' : ''} ${poor && !locked ? 'poor' : ''} ${w && !locked ? 'want' : ''}" data-id="${it.id}" data-lock="🔒 ⭐${it.stars}"><div class="ic">${it.icon}</div><div class="nm">${it.name}</div><div class="pr">🪙 ${it.price}</div></div>`;
+      return `<div class="item ${locked ? 'locked' : ''} ${poor && !locked ? 'poor' : ''} ${w && !locked ? 'want' : ''}" data-id="${it.id}" data-lock="🔒 ⭐${it.stars}"><div class="ic">${it.icon}</div><div class="nm">${it.name}</div><div class="pr">${gift && !locked ? '🎁 gratis' : '🪙 ' + it.price}</div></div>`;
     }).join('');
     L.scrollLeft = 0; L.scrollTop = 0;
     L.querySelectorAll('.item').forEach((el) => {
       el.addEventListener('pointerdown', (e) => this.itemDown(e, el.dataset.id));
+    });
+  }
+  // Preise/„zu teuer“ nachziehen, ohne die Leiste neu aufzubauen (Scroll-Position bleibt)
+  refreshPrices() {
+    const app = this.app, gift = app.sim.geschenk > 0;
+    $('cList').querySelectorAll('.item').forEach((el) => {
+      const it = ITEM[el.dataset.id]; if (!it) return;
+      const locked = el.classList.contains('locked');
+      el.classList.toggle('poor', !locked && !CFG.alles && !gift && app.slot.coins < it.price);
+      const pr = el.querySelector('.pr'); if (pr) pr.textContent = gift && !locked ? '🎁 gratis' : '🪙 ' + it.price;
     });
   }
   itemDown(e, id) {
@@ -128,7 +138,7 @@ export class Furnish {
   checkBuy(id) {
     const app = this.app, it = ITEM[id];
     if (!itemAvailable(app.sim.hotel, id, app.world.id)) { app.sound.sfx('nope'); app.screens.toast('⭐', `${it.name}: ab ${it.stars} Stern${it.stars > 1 ? 'en' : ''}`); return false; }
-    if (!CFG.alles && app.slot.coins < it.price) { app.sound.sfx('nope'); app.screens.toast('🪙', 'Noch nicht genug Münzen'); return false; }
+    if (!CFG.alles && !(app.sim.geschenk > 0) && app.slot.coins < it.price) { app.sound.sfx('nope'); app.screens.toast('🪙', 'Noch nicht genug Münzen'); return false; }
     return true;
   }
   autoPlace(id) {

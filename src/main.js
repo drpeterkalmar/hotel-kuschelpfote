@@ -140,7 +140,9 @@ function hookSim(sim) {
     const v = app.guestVis.get(g.id); if (v) v.celebrate = 1.6;
   });
   sim.on('star', (s) => { snd.sfx('star'); snd.haptic(); app.screens.starCelebrate(s.stars); app.save(); });
-  sim.on('coins', () => app.screens.updateHud());
+  sim.on('coins', () => { app.screens.updateHud(); if (app.mode === 'furnish') app.furnish.refreshPrices(); });
+  sim.on('geschenk', () => { app.screens.toast('🎁', 'Geschenkt! Dieses Möbel kostet nichts.'); if (app.mode === 'furnish') app.furnish.refreshPrices(); });
+  sim.on('sparschwein', (e) => { app.screens.toast('🐷', `Das Sparschwein schenkt dir ${e.n} 🪙`); snd.sfx('chime', { vol: 0.5 }); });
   sim.on('album', (a) => app.screens.toast('📖', 'Neu im Album: ' + (sim.world.gaeste.find((x) => x.art === a.species)?.name || sim.world.ueberraschung?.name || a.species)));
   sim.on('floor', (f) => {
     app.level = 99; app.hotelView.showLevel = 99;

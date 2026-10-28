@@ -40,6 +40,9 @@ export const BAL = {
   sterneHerzen: [8, 28, 60, 110, 180],
   weltFrei: { mond: 3 },          // Sterne in der Blumenwiese, um die nächste Welt zu öffnen
   minigameMuenzen: 2,            // je gesammeltem Stein/Blume
+  // Nie pleite (Peter 28.10.: Tutorial verlangte ein Möbel, aber kein Geld): fällt das Geld unter den Bett-Preis,
+  // schenkt das Sparschwein nach kurzer Zeit Münzen nach – höchstens einmal je Pause.
+  sparschweinUnter: 12, sparschwein: 30, sparschweinNach: 3, sparschweinPause: 60,
 };
 
 export function setConfig(o) { Object.assign(CFG, o); }
