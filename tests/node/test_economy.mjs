@@ -82,3 +82,11 @@ export function testSparschweinNiePleite() {
   for (let t = 0; t < 200; t += 0.1) sim.stepSparschwein(0.1);
   eq(gifts, g0, 'mit genug Geld kein Geschenk');
 }
+
+// Peter 29.10.: Gäste blieben bis zur Bezahlung ~80–160 s (Laufwege zählten nicht) → Uhr läuft ab Einchecken
+export function testAufenthaltBisZahlenKurz() {
+  return import('./mess_aufenthalt.mjs').then(({ messeAufenthalt }) => {
+    const m = messeAufenthalt(7, 600);
+    ok(m.median <= BAL.aufenthalt[1] + 12, 'Median Einchecken→Zahlen ≤ Aufenthalt+12 s, war ' + m.median.toFixed(0));
+  });
+}

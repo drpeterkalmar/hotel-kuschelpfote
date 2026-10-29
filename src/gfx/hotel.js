@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { GeoBuilder } from './geo.js';
 import { atlasTexture, T, WALLPAPERS, DEFAULT_WALL, FLOOR_TILE } from './atlas.js';
-import { FH, HALF_W, CORR, ROOM_W, ROOM_D, LOBBY_Z0, LOBBY_Z1, roomX0, roomZ0, wingLevel, wingRow, wingZc, ROWS_PER_LEVEL, DOOR_GZ } from '../core/layout.js';
+import { DESK_FRONT, DESK_DEPTH, FH, HALF_W, CORR, ROOM_W, ROOM_D, LOBBY_Z0, LOBBY_Z1, roomX0, roomZ0, wingLevel, wingRow, wingZc, ROWS_PER_LEVEL, DOOR_GZ } from '../core/layout.js';
 import { CELL } from '../core/catalog.js';
 
 const WH = 2.25, WT = 0.16, LOW = 0.38, DOOR_H = 2.05, SLAB = 0.22;
@@ -195,9 +195,10 @@ export class HotelView {
     // Vordach über dem Eingang
     b.box(-HALF_W - 1.2, 2.3, -0.3, -HALF_W - 0.05, 2.42, 1.55, Lk.dach, T.STRIPES, 'pynynxpznz');
     // Rezeption: Theke mit Holzfront + Platte + Klingel, Schild
-    const dx0 = 3.15, dx1 = 5.35, dz = -0.55;
-    b.box(dx0, 0, dz - 0.75, dx1, 1.0, dz, '#f6dfc6', T.DESK, 'pzpxnxnz', true);
-    b.box(dx0 - 0.08, 1.0, dz - 0.82, dx1 + 0.08, 1.1, dz + 0.1, Lk.akzent, T.PLAIN, 'pypzpxnxny');
+    // Peter 29.10.: Gastgeber clippte durch die Theke (zwischen Theke und Rückwand nur 0,63 m) → Theke schmaler + nach vorn
+    const dx0 = 3.15, dx1 = 5.35, dz = DESK_FRONT, dd = DESK_DEPTH;
+    b.box(dx0, 0, dz - dd, dx1, 1.0, dz, '#f6dfc6', T.DESK, 'pzpxnxnz', true);
+    b.box(dx0 - 0.08, 1.0, dz - dd - 0.07, dx1 + 0.08, 1.1, dz + 0.1, Lk.akzent, T.PLAIN, 'pypzpxnxny');
     b.box(4.0, 1.1, dz - 0.3, 4.16, 1.2, dz - 0.14, '#ffd36b', T.PLAIN, 'pypzpxnx');
     // Hotelschild im Vorgarten (zur Standard-Blickrichtung)
     b.box(-1.55, 0, z1 + 1.9, -1.45, 1.2, z1 + 2.0, '#ffffff', T.PLAIN, 'pxnxpznz'); b.box(1.45, 0, z1 + 1.9, 1.55, 1.2, z1 + 2.0, '#ffffff', T.PLAIN, 'pxnxpznz');

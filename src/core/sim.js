@@ -294,6 +294,8 @@ export class Sim {
   }
   stepGuest(g, dt) {
     g.t += dt; if (g.react > 0) g.react -= dt;
+    // Peter 29.10.: Gäste blieben ~80–160 s statt 38–52 s, weil Laufwege (früher return vor dem Abzug) nicht zählten → Uhr läuft ab Einchecken immer
+    if (g.room) g.stayLeft -= dt;
     const moving = !STAY_STATES.has(g.state);
     if (moving) {
       const arrived = this.move(g, dt);
@@ -314,7 +316,6 @@ export class Sim {
       case 'back': g.state = 'idleRoom'; g.t = 0; break;
       case 'checkout': g.state = 'waitRide'; g.t0 = this.t; g.anim = 'idle'; break;
     }
-    if (g.room && ['use', 'idleRoom'].includes(g.state)) g.stayLeft -= dt;
     if (g.state === 'waitRide' && this.t - g.t0 > 30) this.removeGuest(g);   // Sicherheitsnetz
   }
   goHomeRoom(g) {

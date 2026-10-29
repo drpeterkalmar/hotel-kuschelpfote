@@ -242,7 +242,7 @@ function guestStates(dt) {
   }
   // Gastgeber hinter der Theke
   const hostAnim = app.t % 11 < 1.4 ? 'gesture-positive' : 'idle';
-  states.set('host', { x: LOBBY.desk.x, y: (app.world.physik.huepfen ? 0.06 + Math.sin(app.t * 1.4) * 0.05 : 0), z: LOBBY.desk.z - 0.55, yaw: -0.25, anim: hostAnim, scale: 0.95 });
+  states.set('host', { x: LOBBY.host.x, y: (app.world.physik.huepfen ? 0.06 + Math.sin(app.t * 1.4) * 0.05 : 0), z: LOBBY.host.z, yaw: -0.25, anim: hostAnim, scale: 0.95 });
   return states;
 }
 app.guestScreen = (g) => { const v = app.guestVis.get(g.id); return v ? new THREE.Vector3(v.x, v.y, v.z) : new THREE.Vector3(g.pos.x, g.pos.y, g.pos.z); };

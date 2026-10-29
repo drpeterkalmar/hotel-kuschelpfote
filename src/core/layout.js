@@ -33,11 +33,14 @@ export function backZ(nWings) { return LOBBY_Z0 - Math.min(nWings, ROWS_PER_LEVE
 export const LOBBY = {
   stop: { x: -10.2, y: 0, z: 3.6 }, outDoor: { x: -6.5, y: 0, z: 0.6 }, door: { x: -4.9, y: 0, z: 0.6 },
   mid: { x: -0.2, y: 0, z: 0.6 },
-  queue: [{ x: 3.7, y: 0, z: 0.35 }, { x: 2.5, y: 0, z: 1.05 }, { x: 1.3, y: 0, z: 1.25 }, { x: 0.1, y: 0, z: 1.35 }, { x: -1.1, y: 0, z: 1.35 }, { x: -2.3, y: 0, z: 1.3 }],
+  queue: [{ x: 3.7, y: 0, z: 0.45 }, { x: 2.5, y: 0, z: 1.05 }, { x: 1.3, y: 0, z: 1.25 }, { x: 0.1, y: 0, z: 1.35 }, { x: -1.1, y: 0, z: 1.35 }, { x: -2.3, y: 0, z: 1.3 }],
   desk: { x: 4.3, z: -0.9 },
+  host: { x: 4.3, z: -1.62 },     // Gastgeber hinter der Theke: Schnauze vor der Theken-Rückkante, Rücken vor der Wand (−2)
   hall: { x: 0, y: 0, z: -1.4 },
   frontL: { x: -6.8, y: 0, z: 4.4 }, frontR: { x: 6.8, y: 0, z: 4.4 },
 };
+// Rezeptionstheke (Vorderkante z, Tiefe). Peter 29.10.: vorher −0,55/0,75 → Gastgeber steckte in der Theke
+export const DESK_FRONT = -0.35, DESK_DEPTH = 0.45;
 // Aufzug am Gang-Anfang (Ebene L), Gangpunkt vor den Türen eines Flügels, Türen in den Gangwänden
 export function liftPoint(level) { return { x: 0, y: level * FH, z: LOBBY_Z0 - 0.7 }; }
 export function corrPoint(w) { return { x: 0, y: wingY(w), z: wingZc(w) }; }
