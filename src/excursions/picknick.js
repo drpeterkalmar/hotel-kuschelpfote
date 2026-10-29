@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { makeSky, makeLights, makeGround, noise2, seeded } from '../gfx/env_common.js';
 import { PropLayer } from '../gfx/batch.js';
+import { SIZES } from '../core/sizes.js';
 import { PetLayer } from '../gfx/pets.js';
 import { FX, P } from '../gfx/fx.js';
 import { GeoBuilder } from '../gfx/geo.js';
@@ -45,6 +46,9 @@ export async function create(ctx) {
   const cols = ['#ff9fc0', '#ffd36b', '#9fd3ff', '#c8a8ff', '#ffb38a'];
   const flies = [];
   const treats = ['apple', 'strawberry', 'cherries', 'cupcake', 'carrot'];
+  // Peter 29.10.: Leckereien waren winzig (Apfel ~11 cm neben 1,6-m-Schmetterlingen) → je Modell auf gleiche Größe bringen
+  const TREAT_GROESSE = 0.9;    // größte Kante in m (Schmetterling ~0,8 m je Flügelpaar-Hälfte)
+  const treatScale = (m) => { const z = SIZES['wiese/' + m]; return z ? TREAT_GROESSE / Math.max(z[0], z[1], z[2]) : 1.9; };
   const treatLayer = new PropLayer(scene, { cast: false }); treatLayer.addParts('wiese', bundles.wiese);
   const cam = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.3, 500);
   let spawnT = 0, got = 0;
@@ -86,7 +90,7 @@ export async function create(ctx) {
           if (Math.abs(o.x) > 10) { o.dead = true; if (o.g) scene.remove(o.g); }
         }
         if (o.g) { o.g.position.set(o.x, o.y, o.z); o.g.rotation.y = o.vx > 0 ? 0 : Math.PI; const f = Math.sin(t * 18 + o.t) * 1.0; o.l.rotation.y = f; o.r.rotation.y = Math.PI - f; if (o.got) o.g.scale.setScalar(1.6 * (1 - Math.min(1, o.got) * 0.7)); }
-        else if (!o.dead) tl.push({ model: 'wiese/' + o.model, x: o.x, y: o.y - 0.15, z: o.z, rotY: o.t * 1.5, scale: (o.model === 'carrot' ? 1.0 : 1.9) * (o.got ? 1 - Math.min(1, o.got) * 0.6 : 1) });
+        else if (!o.dead) tl.push({ model: 'wiese/' + o.model, x: o.x, y: o.y - 0.15, z: o.z, rotY: o.t * 1.5, scale: treatScale(o.model) * (o.got ? 1 - Math.min(1, o.got) * 0.6 : 1) });
       }
       for (let i = flies.length - 1; i >= 0; i--) if (flies[i].dead) flies.splice(i, 1);
       treatLayer.set(tl);
@@ -98,7 +102,7 @@ export async function create(ctx) {
       cam.position.set(0, portrait ? 6.8 : 4.6, portrait ? 13.5 : 9.5); cam.lookAt(0, portrait ? 1.6 : 1.3, 0);
     },
     dispose() {},
-    debug() { return { got, open: flies.filter((f) => !f.got).length }; },
+    debug() { return { got, open: flies.filter((f) => !f.got).length, treatsMitte: flies.filter((f) => !f.got && f.kind === 'treat' && Math.abs(f.x) < 4).length }; },
   };
   void lights;
   return game;
